@@ -1,0 +1,7 @@
+__pycache__
+.venv
+/mods
+/tmp
+/source
+mods.json
+settings.json
