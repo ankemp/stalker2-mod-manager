@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
 from settings_config import get_setting, set_setting
+from gui_helpers import detect_os
 
 class SettingsUI:
     def __init__(self, root, app):
@@ -66,7 +67,15 @@ class SettingsUI:
         self.save_button.grid(row=5, column=0, columnspan=3, pady=10)
 
     def browse_repak(self):
-        selected_file = filedialog.askopenfilename(filetypes=[("Executable files", "*.exe")])
+        os_type = detect_os()
+        if os_type == 'windows':
+            filetypes = [("Executable files", "*.exe")]
+        elif os_type == 'linux':
+            filetypes = [("Executable files", "*")]
+        else:
+            filetypes = [("All files", "*.*")]
+        
+        selected_file = filedialog.askopenfilename(filetypes=filetypes)
         if selected_file:
             self.app.repak_path = selected_file
             self.repak_entry.delete(0, tk.END)
