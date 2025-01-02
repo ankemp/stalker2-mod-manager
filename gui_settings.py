@@ -16,9 +16,9 @@ class SettingsUI:
         self.dir_label = ttk.Label(self.settings_frame, text="Mods Directory:")
         self.dir_label.grid(row=0, column=0, sticky=tk.W)
         
-        self.dir_entry = ttk.Entry(self.settings_frame, width=50)
-        self.dir_entry.grid(row=0, column=1, sticky=(tk.W, tk.E))
-        self.dir_entry.insert(0, self.app.mods_directory)
+        self.mods_directory = ttk.Entry(self.settings_frame, width=50)
+        self.mods_directory.grid(row=0, column=1, sticky=(tk.W, tk.E))
+        self.mods_directory.insert(0, self.app.mods_directory)
         
         self.browse_button = ttk.Button(self.settings_frame, text="Browse", command=self.browse_directory)
         self.browse_button.grid(row=0, column=2, padx=5)
@@ -87,12 +87,16 @@ class SettingsUI:
             self.source_cfg_entry.insert(0, self.app.game_source_cfg_directory)
 
     def save_settings(self):
-        self.app.mods_directory = self.dir_entry.get()
+        self.app.mods_directory = self.mods_directory.get()
         self.app.repak_path = self.repak_entry.get()
         self.app.game_pak_directory = self.game_entry.get()
         self.app.game_source_cfg_directory = self.source_cfg_entry.get()
         self.app.theme = self.theme_var.get()
-        self.app.save_settings_to_file()
+        set_setting("mods_directory", self.mods_directory)
+        set_setting("repak_path", self.repak_path)
+        set_setting("game_pak_directory", self.game_pak_directory)
+        set_setting("game_source_cfg_directory", self.game_source_cfg_directory)
+        set_setting("theme", self.theme)
         self.settings_window.destroy()
         self.app.refresh_pak_files()
         self.app.style.theme_use(self.app.theme)
@@ -101,5 +105,5 @@ class SettingsUI:
         selected_dir = filedialog.askdirectory()
         if selected_dir:
             self.app.mods_directory = selected_dir
-            self.dir_entry.delete(0, tk.END)
-            self.dir_entry.insert(0, self.app.mods_directory)
+            self.mods_directory.delete(0, tk.END)
+            self.mods_directory.insert(0, self.app.mods_directory)

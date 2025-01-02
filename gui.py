@@ -35,13 +35,6 @@ class ModManagerApp:
         self.theme = get_setting("theme") or "cosmo"
         self.style = ttk.Style(self.theme)
 
-    def save_settings_to_file(self):
-        set_setting("mods_directory", self.mods_directory)
-        set_setting("repak_path", self.repak_path)
-        set_setting("game_pak_directory", self.game_pak_directory)
-        set_setting("game_source_cfg_directory", self.game_source_cfg_directory)
-        set_setting("theme", self.theme)
-
     def setup_ui(self):
         self.frame = ttk.Frame(self.root, padding="10")
         self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
