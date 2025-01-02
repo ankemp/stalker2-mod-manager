@@ -1,10 +1,11 @@
 import tkinter as tk
 import ttkbootstrap as ttk
+from tkinter import messagebox
 from gui_table import TreeviewManager
 from mod_config import set_mod_enabled
 from settings_config import load_settings, get_setting, set_setting
 from un_pak import unpack_mods
-from gui_helpers import get_cfg_files, get_mod_directory
+from gui_helpers import get_cfg_files, get_mod_directory, detect_os
 from parse import parse_cfg
 from diff_mod import process_mod_directory
 from gui_settings import SettingsUI
@@ -21,10 +22,17 @@ class ModManagerApp:
         
         self.style = ttk.Style("cosmo")
         
+        self.check_os_support()
         self.load_settings()
         # self.icons = load_icons()
         self.setup_ui()
         self.setup_grid_weights()
+
+    def check_os_support(self):
+        os_type = detect_os()
+        if os_type == 'unsupported':
+            messagebox.showerror("Unsupported OS", "Your operating system is not supported.")
+            self.root.destroy()
 
     def load_settings(self):
         load_settings()

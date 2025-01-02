@@ -1,4 +1,5 @@
 import os
+import platform
 from tkinter import PhotoImage
 
 def get_pak_files(directory):
@@ -56,3 +57,15 @@ def get_cfg_files(mod_name):
             if file.endswith(".cfg"):
                 cfg_files.append(os.path.join(root, file))
     return cfg_files
+
+def detect_os():
+    """
+    Detects the operating system and returns 'windows', 'linux', or 'unsupported'.
+    """
+    system = platform.system().lower()
+    if system == 'windows':
+        return 'windows'
+    elif system == 'linux':
+        return 'linux'
+    else:
+        return 'unsupported'
