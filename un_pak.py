@@ -12,7 +12,11 @@ def unpack_single_mod(filename):
         repak_binary = get_setting("repak_path")
         mods_dir = get_setting("mods_directory")
         pak_path = os.path.join(mods_dir, filename)
-        unpack_dir = os.path.join("mods", os.path.splitext(filename)[0])
+        unpack_dir = os.path.join("unpacked", os.path.splitext(filename)[0])
+        
+        # Ensure the "unpacked" directory exists
+        if not os.path.exists("unpacked"):
+            os.makedirs("unpacked")
         
         # Unpack the .pak file using the repak CLI tool
         command = [
@@ -21,5 +25,4 @@ def unpack_single_mod(filename):
             'unpack', pak_path,
             '--output', unpack_dir
         ]
-        process = subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        process.check_returncode()
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
