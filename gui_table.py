@@ -10,6 +10,7 @@ class TreeviewManager:
     def __init__(self, parent, mods_directory):
         self.treeview = self.setup_treeview(parent)
         self.populate_treeview(mods_directory)
+        self.context_menu = None
 
     def setup_treeview(self, parent):
         treeview = ttk.Treeview(parent, columns=("name", "size", "unpacked", "conflicts"), selectmode='browse', show="headings")
@@ -53,28 +54,32 @@ class TreeviewManager:
         #     treeview.item(item, image=new_image)
 
     def show_context_menu(self, event):
+        if self.context_menu:
+            self.context_menu.unpost()
         itemId = self.treeview.identify_row(event.y)
         if itemId:
             self.treeview.selection_set(itemId)
-            context_menu = ttk.Menu(self.treeview, tearoff=0)
+            mod_name = self.treeview.item(itemId, "values")[0]
+            print(f"Selected mod: {mod_name}")
+            self.context_menu = ttk.Menu(self.treeview, title=mod_name, tearoff=0)
             if self.treeview.tag_has("enabled", itemId):
-                context_menu.add_command(label="Disable", command=lambda: self.disable_mod(itemId))
+                self.context_menu.add_command(label="Disable", command=lambda: self.disable_mod(itemId))
             else:
-                context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
-            context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
-            context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
+                self.context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
+            self.context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
+            self.context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
             
             index = self.treeview.index(itemId)
             if len(self.treeview.get_children()) > 1:
-                context_menu.add_separator()
+                self.context_menu.add_separator()
                 if index > 0:
-                    context_menu.add_command(label="Move to Top", command=lambda: self.move_to_top(itemId))
-                    context_menu.add_command(label="Move Up One", command=lambda: self.move_up_one(itemId))
+                    self.context_menu.add_command(label="Move to Top", command=lambda: self.move_to_top(itemId))
+                    self.context_menu.add_command(label="Move Up One", command=lambda: self.move_up_one(itemId))
                 if index < len(self.treeview.get_children()) - 1:
-                    context_menu.add_command(label="Move Down One", command=lambda: self.move_down_one(itemId))
-                    context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
+                    self.context_menu.add_command(label="Move Down One", command=lambda: self.move_down_one(itemId))
+                    self.context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
 
-            context_menu.post(event.x_root, event.y_root)
+            self.context_menu.post(event.x_root, event.y_root)
 
     def unpack_pak(self, itemId):
         mod_name = self.treeview.item(itemId, "values")[0]
