@@ -2,36 +2,26 @@ import json
 import os
 
 SETTINGS_FILE = "settings.json"
-settings_state = {
-    "mods_directory": "",
+DEFAULT_SETTINGS = {
+    "mods_directory": "mods",
     "repak_path": "",
     "game_pak_directory": "",
     "theme": "cosmo",
-    "game_source_cfg_directory": ""
+    "game_source_cfg_directory": "source"
 }
+settings_state = DEFAULT_SETTINGS.copy()
 
 def load_settings():
     global settings_state
     if os.path.exists(SETTINGS_FILE):
         with open(SETTINGS_FILE, "r") as f:
             try:
-                settings_state = json.load(f)
+                loaded_settings = json.load(f)
+                settings_state.update({key: loaded_settings.get(key, default) for key, default in DEFAULT_SETTINGS.items()})
             except json.JSONDecodeError:
-                settings_state = {
-                    "mods_directory": "",
-                    "repak_path": "",
-                    "game_pak_directory": "",
-                    "theme": "cosmo",
-                    "game_source_cfg_directory": ""
-                }
+                settings_state = DEFAULT_SETTINGS.copy()
     else:
-        settings_state = {
-            "mods_directory": "",
-            "repak_path": "",
-            "game_pak_directory": "",
-            "theme": "cosmo",
-            "game_source_cfg_directory": ""
-        }
+        settings_state = DEFAULT_SETTINGS.copy()
 
 def get_setting(key):
     return settings_state.get(key, "")
