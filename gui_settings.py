@@ -23,7 +23,7 @@ class SettingsUI:
         self.browse_button = ttk.Button(self.settings_frame, text="Browse", command=self.browse_directory)
         self.browse_button.grid(row=0, column=2, padx=5)
         
-        self.repak_label = ttk.Label(self.settings_frame, text="Repak.exe Path:")
+        self.repak_label = ttk.Label(self.settings_frame, text="Repak Binary Path:")
         self.repak_label.grid(row=1, column=0, sticky=tk.W)
         
         self.repak_entry = ttk.Entry(self.settings_frame, width=50)
