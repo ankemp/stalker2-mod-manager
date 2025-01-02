@@ -63,15 +63,16 @@ class TreeviewManager:
                 context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
             context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
             context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
-            context_menu.add_separator()
             
             index = self.treeview.index(itemId)
-            if index > 0:
-                context_menu.add_command(label="Move to Top", command=lambda: self.move_to_top(itemId))
-                context_menu.add_command(label="Move Up One", command=lambda: self.move_up_one(itemId))
-            if index < len(self.treeview.get_children()) - 1:
-                context_menu.add_command(label="Move Down One", command=lambda: self.move_down_one(itemId))
-                context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
+            if len(self.treeview.get_children()) > 1:
+                context_menu.add_separator()
+                if index > 0:
+                    context_menu.add_command(label="Move to Top", command=lambda: self.move_to_top(itemId))
+                    context_menu.add_command(label="Move Up One", command=lambda: self.move_up_one(itemId))
+                if index < len(self.treeview.get_children()) - 1:
+                    context_menu.add_command(label="Move Down One", command=lambda: self.move_down_one(itemId))
+                    context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
 
             context_menu.post(event.x_root, event.y_root)
 
@@ -89,7 +90,7 @@ class TreeviewManager:
         self.treeview.item(itemId, values=(mod_name, self.treeview.item(itemId, "values")[1], "yes"))
 
     def enable_mod(self, itemId):
-        mod_name = self.treeview.item(itemId, "values")[1]
+        mod_name = self.treeview.item(itemId, "values")[0]  # Use the first column (mod name)
         set_mod_enabled(mod_name, True)
         self.treeview.item(itemId, tags="enabled")
 
