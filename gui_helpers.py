@@ -18,7 +18,7 @@ def load_icons():
     icons = {}
     icons_dir = os.path.join(os.path.dirname(__file__), "gui-assets")
     for icon_name in os.listdir(icons_dir):
-        if icon_name.endswith(".png"):
+        if (icon_name.endswith(".png")):
             icon_path = os.path.join(icons_dir, icon_name)
             icon_key = os.path.splitext(icon_name)[0]  # Remove the .png extension
             icons[icon_key] = PhotoImage(file=icon_path)
@@ -37,7 +37,7 @@ def get_mod_directory(mod_name):
     """
     Takes a mod name and returns the directory that the mod is unpacked in.
     """
-    return os.path.join("mods", os.path.splitext(mod_name)[0])
+    return os.path.join("unpacked", os.path.splitext(mod_name)[0])
 
 def is_mod_unpacked(mod_name):
     """
@@ -51,7 +51,7 @@ def get_cfg_files(mod_name):
     and returns a list of all the .cfg files that exist in that directory structure.
     """
     cfg_files = []
-    mod_dir = os.path.join("mods", os.path.splitext(mod_name)[0])
+    mod_dir = get_mod_directory(mod_name)
     for root, _, files in os.walk(mod_dir):
         for file in files:
             if file.endswith(".cfg"):

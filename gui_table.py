@@ -60,7 +60,6 @@ class TreeviewManager:
         if itemId:
             self.treeview.selection_set(itemId)
             mod_name = self.treeview.item(itemId, "values")[0]
-            print(f"Selected mod: {mod_name}")
             self.context_menu = ttk.Menu(self.treeview, title=mod_name, tearoff=0)
             if self.treeview.tag_has("enabled", itemId):
                 self.context_menu.add_command(label="Disable", command=lambda: self.disable_mod(itemId))
