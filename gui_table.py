@@ -3,7 +3,7 @@ from gui_helpers import get_mod_directory, get_pak_files, is_mod_unpacked, get_c
 from mod_config import is_mod_enabled, set_mod_enabled, get_mod_order, set_mod_order
 from parse import parse_cfg
 from settings_config import get_setting
-from un_pak import unpack_single_mod
+from un_pak import unpack_single_mod, list_files_in_pak
 from diff_mod import process_mod_directory
 
 class TreeviewManager:
@@ -67,6 +67,7 @@ class TreeviewManager:
                 self.context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
             self.context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
             self.context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
+            self.context_menu.add_command(label="List Pak Files", command=lambda: self.list_files_for_mod(itemId))
             
             index = self.treeview.index(itemId)
             if len(self.treeview.get_children()) > 1:
@@ -79,6 +80,25 @@ class TreeviewManager:
                     self.context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
 
             self.context_menu.post(event.x_root, event.y_root)
+
+    def list_files_for_mod(self, itemId):
+        mod_name = self.treeview.item(itemId, "values")[0]
+        files = list_files_in_pak(mod_name)
+        self.attach_files_to_mod(itemId, files)
+
+    def attach_files_to_mod(self, itemId, files):
+        for file in files:
+            self.treeview.insert(itemId, "end", values=(file, "", "", ""), tags=("file",))
+        self.treeview.item(itemId, open=True)
+        self.resize_name_column()
+
+    def resize_name_column(self):
+        max_width = 0
+        for item in self.treeview.get_children():
+            bbox = self.treeview.bbox(item, column="name")
+            if bbox:
+                max_width = max(max_width, bbox[2])
+        self.treeview.column("name", width=max_width)
 
     def unpack_pak(self, itemId):
         mod_name = self.treeview.item(itemId, "values")[0]
