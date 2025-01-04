@@ -1,4 +1,3 @@
-import tkinter as tk
 import ttkbootstrap as ttk
 from tkinter import messagebox
 from gui_table import TreeviewManager
@@ -19,8 +18,6 @@ class ModManagerApp:
         self.game_source_cfg_directory = ""
         self.root.title("Stalker 2 Mod Manager")
         self.root.geometry("1024x768")  # Set default window size to larger dimensions
-        
-        self.style = ttk.Style("cosmo")
         
         self.check_os_support()
         self.load_settings()
@@ -84,7 +81,7 @@ class ModManagerApp:
 
     def setup_ui(self):
         self.frame = ttk.Frame(self.root, padding="10")
-        self.frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.frame.grid(row=0, column=0, sticky=(ttk.W, ttk.E, ttk.N, ttk.S))
         
         self.create_toolbar()
         
@@ -94,10 +91,10 @@ class ModManagerApp:
 
     def create_toolbar(self):
         self.toolbar = ttk.Frame(self.frame, padding="5")
-        self.toolbar.grid(row=0, column=0, columnspan=4, sticky=(tk.W, tk.E))
+        self.toolbar.grid(row=0, column=0, columnspan=4, sticky=(ttk.W, ttk.E))
         
         self.actions_menu_button = ttk.Menubutton(self.toolbar, text="Bulk Actions")
-        self.actions_menu = tk.Menu(self.actions_menu_button, tearoff=0)
+        self.actions_menu = ttk.Menu(self.actions_menu_button, tearoff=0)
         self.actions_menu.add_command(label="Enable All", command=self.enable_all_mods)
         self.actions_menu.add_command(label="Disable All", command=self.disable_all_mods)
         self.actions_menu.add_command(label="Unpack All", command=self.unpack_all_mods)
@@ -107,20 +104,20 @@ class ModManagerApp:
         self.actions_menu_button.grid(row=0, column=0, padx=5)
         
         self.refresh_button = ttk.Button(self.toolbar, text="Refresh", command=self.refresh_pak_files)
-        self.refresh_button.grid(row=0, column=1, padx=5, sticky=tk.E)
+        self.refresh_button.grid(row=0, column=1, padx=5, sticky=ttk.E)
         
         self.config_button = ttk.Button(self.toolbar, text="Config", command=self.show_settings)
-        self.config_button.grid(row=0, column=2, padx=5, sticky=tk.E)
+        self.config_button.grid(row=0, column=2, padx=5, sticky=ttk.E)
 
     def create_status_widget(self):
         self.status_frame = ttk.Frame(self.frame, padding="5")
-        self.status_frame.grid(row=2, column=0, columnspan=4, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.status_frame.grid(row=2, column=0, columnspan=4, sticky=(ttk.W, ttk.E, ttk.N, ttk.S))
         
         self.status_label = ttk.Label(self.status_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=0, column=1, sticky=(tk.E))
+        self.status_label.grid(row=0, column=1, sticky=(ttk.E))
         
         self.progress_bar = ttk.Progressbar(self.status_frame, mode="indeterminate", maximum=130)
-        self.progress_bar.grid(row=0, column=2, sticky=(tk.E))
+        self.progress_bar.grid(row=0, column=2, sticky=(ttk.E))
         self.progress_bar.grid_remove()
 
     def update_status_widget(self, text="Ready", text_color="green", show_progress=False):
@@ -184,6 +181,6 @@ class ModManagerApp:
         self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ttk.tk.Tk()
     app = ModManagerApp(root)
     root.mainloop()
