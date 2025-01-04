@@ -5,7 +5,7 @@ from gui_table import TreeviewManager
 from mod_config import set_mod_enabled
 from settings_config import load_settings, get_setting, set_setting
 from un_pak import list_files_in_pak, unpack_mods
-from gui_helpers import get_cfg_files, get_mod_directory, detect_os
+from gui_helpers import get_cfg_files, get_mod_directory, detect_os, is_repak_installed, install_repak
 from parse import parse_cfg
 from diff_mod import process_mod_directory
 from gui_settings import SettingsUI
@@ -27,6 +27,7 @@ class ModManagerApp:
         # self.icons = load_icons()
         self.setup_ui()
         self.setup_grid_weights()
+        self.check_repak_installation()
 
     def check_os_support(self):
         os_type = detect_os()
@@ -42,6 +43,44 @@ class ModManagerApp:
         self.game_source_cfg_directory = get_setting("game_source_cfg_directory")
         self.theme = get_setting("theme") or "cosmo"
         self.style = ttk.Style(self.theme)
+
+    def check_repak_installation(self):
+        if not self.repak_path:
+            repak_path = is_repak_installed()
+            if repak_path:
+                self.prompt_repak_installed(repak_path)
+            else:
+                self.prompt_repak_not_installed()
+
+    def prompt_repak_installed(self, repak_path):
+        response = messagebox.askyesnocancel("Repak Detected", f"Repak is installed at {repak_path}. Do you want to set this as the repak path, or select your own repak location?")
+        if response is None:
+            return
+        elif response:
+            self.repak_path = repak_path
+            set_setting("repak_path", self.repak_path)
+        else:
+            self.show_settings()
+
+    def prompt_repak_not_installed(self):
+        response = messagebox.askyesnocancel("Repak Not Detected", "Repak is not installed. Do you want to download and install it now, or select your own repak location?")
+        if response is None:
+            return
+        elif response:
+            self.download_repak()
+        else:
+            self.show_settings()
+
+    def download_repak(self):
+        self.update_status_widget(text="Downloading and installing repak...", text_color="blue", show_progress=True)
+        repak_path = install_repak()
+        if repak_path:
+            self.repak_path = repak_path
+            set_setting("repak_path", self.repak_path)
+            messagebox.showinfo("Repak Installed", f"Repak has been successfully installed at {repak_path}.")
+        else:
+            messagebox.showerror("Installation Failed", "Failed to install repak.")
+        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
     def setup_ui(self):
         self.frame = ttk.Frame(self.root, padding="10")

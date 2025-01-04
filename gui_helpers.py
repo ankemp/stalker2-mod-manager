@@ -1,6 +1,7 @@
 import os
 import platform
 from tkinter import PhotoImage
+import subprocess
 
 def get_pak_files(directory):
     """
@@ -69,3 +70,45 @@ def detect_os():
         return 'linux'
     else:
         return 'unsupported'
+    
+def is_repak_installed():
+    os_type = detect_os()
+    if os_type == 'windows':
+        command = "where repak"
+    elif os_type == 'linux':
+        command = "which repak"
+    else:
+        return False
+
+    try:
+        result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        repak_path = result.stdout.decode().strip()
+        if repak_path:
+            return repak_path
+        else:
+            return False
+    except subprocess.CalledProcessError:
+        return False
+
+def install_repak():
+    os_type = detect_os()
+    rpak_version = "0.2.2"
+    if os_type == 'windows':
+        command = f"irm https://github.com/trumank/repak/releases/download/v{rpak_version}/repak_cli-installer.ps1 | iex"
+        binary_name = "repak.exe"
+    elif os_type == 'linux':
+        command = f"curl --proto '=https' --tlsv1.2 -LsSf https://github.com/trumank/repak/releases/download/v{rpak_version}/repak_cli-installer.sh | sh"
+        binary_name = "repak"
+    else:
+        return False
+
+    try:
+        result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output = result.stdout.decode()
+        for line in output.splitlines():
+            if "installing to" in line.lower():
+                repak_path = line.split("installing to")[-1].strip()
+                return os.path.join(repak_path, binary_name)
+        return False
+    except subprocess.CalledProcessError:
+        return False
