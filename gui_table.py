@@ -59,7 +59,7 @@ class TreeviewManager:
         itemId = self.treeview.identify_row(event.y)
         if itemId:
             self.treeview.selection_set(itemId)
-            mod_name = self.treeview.item(itemId, "values")[0]
+            mod_name = self.get_mod_name_from_item(itemId)
             self.context_menu = ttk.Menu(self.treeview, title=mod_name, tearoff=0)
             if self.treeview.tag_has("enabled", itemId):
                 self.context_menu.add_command(label="Disable", command=lambda: self.disable_mod(itemId))
@@ -82,7 +82,7 @@ class TreeviewManager:
             self.context_menu.post(event.x_root, event.y_root)
 
     def list_files_for_mod(self, itemId):
-        mod_name = self.treeview.item(itemId, "values")[0]
+        mod_name = self.get_mod_name_from_item(itemId)
         files = list_files_in_pak(mod_name)
         self.attach_files_to_mod(itemId, files)
 
@@ -101,12 +101,12 @@ class TreeviewManager:
         self.treeview.column("name", width=max_width)
 
     def unpack_pak(self, itemId):
-        mod_name = self.treeview.item(itemId, "values")[0]
+        mod_name = self.get_mod_name_from_item(itemId)
         unpack_single_mod(mod_name)
         self.treeview.item(itemId, values=(mod_name, self.treeview.item(itemId, "values")[1], "yes"))
 
     def analyze_pak(self, itemId):
-        mod_name = self.treeview.item(itemId, "values")[0]
+        mod_name = self.get_mod_name_from_item(itemId)
         cfg_files = get_cfg_files(mod_name)
         for file_path in cfg_files:
             parse_cfg(file_path)
@@ -114,12 +114,12 @@ class TreeviewManager:
         self.treeview.item(itemId, values=(mod_name, self.treeview.item(itemId, "values")[1], "yes"))
 
     def enable_mod(self, itemId):
-        mod_name = self.treeview.item(itemId, "values")[0]  # Use the first column (mod name)
+        mod_name = self.get_mod_name_from_item(itemId)
         set_mod_enabled(mod_name, True)
         self.treeview.item(itemId, tags="enabled")
 
     def disable_mod(self, itemId):
-        mod_name = self.treeview.item(itemId, "values")[1]
+        mod_name = self.get_mod_name_from_item(itemId)
         set_mod_enabled(mod_name, False)
         self.treeview.item(itemId, tags="disabled")
 
@@ -147,3 +147,5 @@ class TreeviewManager:
         order = [self.treeview.item(item, "values")[1] for item in self.treeview.get_children()]
         set_mod_order(order)
 
+    def get_mod_name_from_item(self, item):
+        return self.treeview.item(item, "values")[0]
