@@ -2,7 +2,7 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from tkinter import messagebox
 from gui_table import TreeviewManager
-from mod_config import set_mod_enabled
+from mod_config import mod_config
 from settings_config import load_settings, get_setting, set_setting
 from un_pak import list_files_in_pak, unpack_mods
 from gui_helpers import get_cfg_files, get_mod_directory, detect_os, is_repak_installed, install_repak
@@ -135,13 +135,13 @@ class ModManagerApp:
     def enable_all_mods(self):
         for item in self.treeview_manager.treeview.get_children():
             mod_name = self.treeview_manager.treeview.item(item, "values")[1]
-            set_mod_enabled(mod_name, True)
+            mod_config.set_mod_enabled(mod_name, True)
             self.treeview_manager.treeview.item(item, tags="enabled")
 
     def disable_all_mods(self):
         for item in self.treeview_manager.treeview.get_children():
             mod_name = self.treeview_manager.treeview.item(item, "values")[1]
-            set_mod_enabled(mod_name, False)
+            mod_config.set_mod_enabled(mod_name, False)
             self.treeview_manager.treeview.item(item, tags="disabled")
 
     def refresh_pak_files(self):

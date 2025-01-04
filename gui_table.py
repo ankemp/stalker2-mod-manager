@@ -1,6 +1,6 @@
 import ttkbootstrap as ttk
 from gui_helpers import get_mod_directory, get_pak_files, is_mod_unpacked, get_cfg_files
-from mod_config import is_mod_enabled, set_mod_enabled, get_mod_order, set_mod_order
+from mod_config import mod_config
 from parse import parse_cfg
 from settings_config import get_setting
 from un_pak import unpack_single_mod, list_files_in_pak
@@ -31,6 +31,7 @@ class TreeviewManager:
         return treeview
 
     def populate_treeview(self, mods_directory):
+        mod_config.load_mods()
         pak_files = get_pak_files(mods_directory)
         for pak_file in pak_files:
             size = pak_file["size"]
@@ -40,7 +41,7 @@ class TreeviewManager:
                 size_kb = size // 1024
                 size_str = f"{size_kb} KB"
             
-            is_enabled = is_mod_enabled(pak_file["name"])
+            is_enabled = mod_config.is_mod_enabled(pak_file["name"])
             unpacked = "yes" if is_mod_unpacked(pak_file["name"]) else "no"
 
             self.treeview.insert("", "end", values=(pak_file["name"], size_str, unpacked), tags=("enabled" if is_enabled else "disabled"))
@@ -115,12 +116,12 @@ class TreeviewManager:
 
     def enable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
-        set_mod_enabled(mod_name, True)
+        mod_config.set_mod_enabled(mod_name, True)
         self.treeview.item(itemId, tags="enabled")
 
     def disable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
-        set_mod_enabled(mod_name, False)
+        mod_config.set_mod_enabled(mod_name, False)
         self.treeview.item(itemId, tags="disabled")
 
     def move_to_top(self, itemId):
@@ -145,7 +146,7 @@ class TreeviewManager:
 
     def update_mod_order(self):
         order = [self.treeview.item(item, "values")[1] for item in self.treeview.get_children()]
-        set_mod_order(order)
+        mod_config.set_mod_order(order)
 
     def get_mod_name_from_item(self, item):
         return self.treeview.item(item, "values")[0]
