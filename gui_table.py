@@ -26,10 +26,10 @@ class TreeviewManager:
         treeview.heading("size", text="Size")
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("conflicts", text="Conflicts")
-        treeview.column("#0", width=600, anchor="w")
-        treeview.column("size", width=50, anchor="center")
+        treeview.column("#0", width=500, anchor="w")
+        treeview.column("size", width=35, anchor="center")
         treeview.column("unpacked", width=65, anchor="center")
-        treeview.column("conflicts", width=100, anchor="center")
+        treeview.column("conflicts", width=150, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
         treeview.tag_configure("enabled", foreground="green")
         treeview.tag_configure("disabled", foreground="red")
@@ -55,6 +55,8 @@ class TreeviewManager:
 
             item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=(size_str, unpacked, ""), tags=("enabled" if is_enabled else "disabled"))
             self.list_files_for_mod(item_id)
+            
+        self.find_conflicts()
 
     def show_context_menu(self, event):
         if self.context_menu:
@@ -143,3 +145,32 @@ class TreeviewManager:
 
     def get_mod_name_from_item(self, item):
         return self.treeview.item(item, "text")
+
+    def find_conflicts(self):
+        all_files = {}
+        for parent in self.treeview.get_children():
+            children = self.treeview.get_children(parent)
+            for child in children:
+                filename = self.treeview.item(child, "text")
+                if filename in all_files:
+                    all_files[filename].append((parent, child))
+                else:
+                    all_files[filename] = [(parent, child)]
+        
+        for filename, items in all_files.items():
+            if len(items) > 1:
+                for i, (parent, child) in enumerate(items):
+                    self.treeview.item(parent, tags="conflict")
+                    self.treeview.item(child, tags="conflict")
+                    other_parents = [self.treeview.item(p, "text") for j, (p, c) in enumerate(items) if i != j]
+                    conflict_text = ', '.join(other_parents)
+                    self.treeview.set(child, "conflicts", conflict_text)
+
+    def has_conflicting_children(self, children):
+        filenames = set()
+        for child in children:
+            filename = self.treeview.item(child, "text")
+            if filename in filenames:
+                return True
+            filenames.add(filename)
+        return False
