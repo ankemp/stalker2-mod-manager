@@ -40,7 +40,7 @@ class TreeviewManager:
         return treeview
 
     def populate_treeview(self):
-        mod_config.load_mods()
+        mod_config.load_mods_config()
         pak_files = get_pak_files(self.mods_directory)
         for pak_file in pak_files:
             size = pak_file["size"]

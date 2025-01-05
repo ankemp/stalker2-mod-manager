@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
+import mod_config
 from settings_config import settings_config
 from gui_helpers import detect_os
 
@@ -72,6 +73,7 @@ class SettingsUI:
         if selected_dir:
             self.mods_directory.delete(0, tk.END)
             self.mods_directory.insert(0, selected_dir)
+            mod_config.reset_mod_config()
 
     def browse_repak(self):
         os_type = detect_os()
