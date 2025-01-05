@@ -165,12 +165,6 @@ class TreeviewManager:
                     other_parents = [self.treeview.item(p, "text") for j, (p, c) in enumerate(items) if i != j]
                     conflict_text = ', '.join(other_parents)
                     self.treeview.set(child, "conflicts", conflict_text)
+                    conflict_text = f"{len(items)} conflicts with {len(other_parents)} mods"
+                    self.treeview.set(parent, "conflicts", conflict_text)
 
-    def has_conflicting_children(self, children):
-        filenames = set()
-        for child in children:
-            filename = self.treeview.item(child, "text")
-            if filename in filenames:
-                return True
-            filenames.add(filename)
-        return False
