@@ -15,11 +15,12 @@ class TreeviewManager:
         self.context_menu = None
 
     def setup_treeview(self, parent):
-        treeview = ttk.Treeview(parent, columns=("name", "size", "unpacked", "conflicts"), selectmode='extended', show="headings", style="Custom.Treeview")
+        treeview = ttk.Treeview(parent, columns=("name", "size", "unpacked", "conflicts"), selectmode='extended', show="tree headings")
         treeview.heading("name", text="Pak File Name")
         treeview.heading("size", text="Size")
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("conflicts", text="Conflicts")
+        treeview.column("#0", width=25, stretch=False)
         treeview.column("name", width=600, anchor="w")
         treeview.column("size", width=100, anchor="center")
         treeview.column("unpacked", width=50, anchor="center")
@@ -92,7 +93,7 @@ class TreeviewManager:
 
     def attach_files_to_mod(self, itemId, files):
         for file in files:
-            self.treeview.insert(itemId, "end", values=(file, "", "", ""), tags=("file",))
+            self.treeview.insert(itemId, ttk.END, values=(file, "", "", ""), tags=("file",))
         self.treeview.item(itemId, open=True)
         self.resize_name_column()
 
@@ -144,7 +145,7 @@ class TreeviewManager:
             self.update_mod_order()
 
     def move_to_bottom(self, itemId):
-        self.treeview.move(itemId, '', 'end')
+        self.treeview.move(itemId, '', ttk.END)
         self.update_mod_order()
 
     def update_mod_order(self):
