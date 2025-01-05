@@ -99,7 +99,6 @@ class ModManagerApp:
         self.actions_menu.add_command(label="Disable All", command=self.disable_all_mods)
         self.actions_menu.add_command(label="Unpack All", command=self.unpack_all_mods)
         self.actions_menu.add_command(label="Analyze All", command=self.analyze_all_mods)
-        self.actions_menu.add_command(label="List all Pak Files", command=self.list_all_pak_files)
         self.actions_menu_button["menu"] = self.actions_menu
         self.actions_menu_button.grid(row=0, column=0, padx=5)
         
@@ -170,14 +169,6 @@ class ModManagerApp:
             for file_path in cfg_files:
                 parse_cfg(file_path)
             process_mod_directory(get_mod_directory(mod_name), self.game_source_cfg_directory)
-        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
-
-    def list_all_pak_files(self):
-        self.update_status_widget(text="Gathering data...", text_color="blue", show_progress=True)
-        for item in self.treeview_manager.treeview.get_children():
-            mod_name = self.treeview_manager.treeview.item(item, "values")[0]
-            files = list_files_in_pak(mod_name)
-            self.treeview_manager.attach_files_to_mod(item, files)
         self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
 if __name__ == "__main__":

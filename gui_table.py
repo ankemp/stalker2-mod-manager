@@ -48,7 +48,8 @@ class TreeviewManager:
             is_enabled = mod_config.is_mod_enabled(pak_file["name"])
             unpacked = "yes" if is_mod_unpacked(pak_file["name"]) else "no"
 
-            self.treeview.insert("", "end", values=(pak_file["name"], size_str, unpacked), tags=("enabled" if is_enabled else "disabled"))
+            item_id = self.treeview.insert("", "end", values=(pak_file["name"], size_str, unpacked), tags=("enabled" if is_enabled else "disabled"))
+            self.list_files_for_mod(item_id)
 
     def on_treeview_click(self, event):
         item = self.treeview.identify_row(event.y)
@@ -94,16 +95,7 @@ class TreeviewManager:
     def attach_files_to_mod(self, itemId, files):
         for file in files:
             self.treeview.insert(itemId, ttk.END, values=(file, "", "", ""), tags=("file",))
-        self.treeview.item(itemId, open=True)
-        self.resize_name_column()
-
-    def resize_name_column(self):
-        max_width = 0
-        for item in self.treeview.get_children():
-            bbox = self.treeview.bbox(item, column="name")
-            if bbox:
-                max_width = max(max_width, bbox[2])
-        self.treeview.column("name", width=max_width)
+        self.treeview.item(itemId, open=False)
 
     def unpack_pak(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
