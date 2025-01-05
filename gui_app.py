@@ -39,7 +39,7 @@ class ModManagerApp:
         self.repak_path = settings_config.get_setting("repak_path")
         self.game_pak_directory = settings_config.get_setting("game_pak_directory")
         self.game_source_cfg_directory = settings_config.get_setting("game_source_cfg_directory")
-        self.style_manager = StyleManager()  # Initialize StyleManager
+        self.style_manager = StyleManager()
 
     def check_repak_installation(self):
         if not self.repak_path:
@@ -85,7 +85,7 @@ class ModManagerApp:
         
         self.create_toolbar()
         
-        self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)
+        self.treeview_manager = TreeviewManager(self.frame, self, self.mods_directory)
         
         self.create_status_widget()
 
@@ -141,9 +141,9 @@ class ModManagerApp:
             self.treeview_manager.treeview.item(item, tags="disabled")
 
     def refresh_pak_files(self):
-        for item in self.treeview_manager.treeview.get_children():
-            self.treeview_manager.treeview.delete(item)
-        self.treeview_manager.populate_treeview(self.mods_directory)
+        self.update_status_widget(text="Rebuilding tree...", text_color="blue", show_progress=True)
+        self.treeview_manager = TreeviewManager(self.frame, self, self.mods_directory)
+        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
     def setup_grid_weights(self):
         self.root.columnconfigure(0, weight=1)
