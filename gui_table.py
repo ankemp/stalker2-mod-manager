@@ -140,7 +140,7 @@ class TreeviewManager:
         self.update_mod_order()
 
     def update_mod_order(self):
-        order = [self.treeview.item(item, "values")[1] for item in self.treeview.get_children()]
+        order = [self.get_mod_name_from_item(item) for item in self.treeview.get_children()]
         mod_config.set_mod_order(order)
 
     def get_mod_name_from_item(self, item):

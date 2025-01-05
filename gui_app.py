@@ -130,13 +130,13 @@ class ModManagerApp:
 
     def enable_all_mods(self):
         for item in self.treeview_manager.treeview.get_children():
-            mod_name = self.treeview_manager.treeview.item(item, "values")[1]
+            mod_name = self.treeview_manager.get_mod_name_from_item(item)
             mod_config.set_mod_enabled(mod_name, True)
             self.treeview_manager.treeview.item(item, tags="enabled")
 
     def disable_all_mods(self):
         for item in self.treeview_manager.treeview.get_children():
-            mod_name = self.treeview_manager.treeview.item(item, "values")[1]
+            mod_name = self.treeview_manager.get_mod_name_from_item(item)
             mod_config.set_mod_enabled(mod_name, False)
             self.treeview_manager.treeview.item(item, tags="disabled")
 
