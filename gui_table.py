@@ -10,33 +10,38 @@ class TreeviewManager:
     def __init__(self, parent, mods_directory):
         self.parent = parent
         self.mods_directory = mods_directory
-        self.treeview = self.setup_treeview(parent)
-        self.populate_treeview(mods_directory)
+        self.treeview = self.setup_treeview()
+        self.populate_treeview()
         self.context_menu = None
 
-    def setup_treeview(self, parent):
-        treeview = ttk.Treeview(parent, columns=("name", "size", "unpacked", "conflicts"), selectmode='extended', show="tree headings")
-        treeview.heading("name", text="Pak File Name")
+    def setup_treeview(self):
+        treeview = ttk.Treeview(
+            self.parent,
+            bootstyle='secondary',
+            columns=("size", "unpacked", "conflicts"),
+            selectmode='extended',
+            show="tree headings",
+            height=15,
+        )
         treeview.heading("size", text="Size")
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("conflicts", text="Conflicts")
-        treeview.column("#0", width=25, stretch=False)
-        treeview.column("name", width=600, anchor="w")
-        treeview.column("size", width=100, anchor="center")
-        treeview.column("unpacked", width=50, anchor="center")
+        treeview.column("#0", width=600, anchor="w")
+        treeview.column("size", width=50, anchor="center")
+        treeview.column("unpacked", width=65, anchor="center")
+        treeview.column("conflicts", width=100, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
         treeview.tag_configure("enabled", foreground="green")
         treeview.tag_configure("disabled", foreground="red")
         treeview.tag_configure("conflict", foreground="orange")
 
-        treeview.bind("<Button-1>", lambda event: self.on_treeview_click(event))
         treeview.bind("<Button-3>", lambda event: self.show_context_menu(event))
         
         return treeview
 
-    def populate_treeview(self, mods_directory):
+    def populate_treeview(self):
         mod_config.load_mods()
-        pak_files = get_pak_files(mods_directory)
+        pak_files = get_pak_files(self.mods_directory)
         for pak_file in pak_files:
             size = pak_file["size"]
             if size < 1024:
@@ -48,16 +53,8 @@ class TreeviewManager:
             is_enabled = mod_config.is_mod_enabled(pak_file["name"])
             unpacked = "yes" if is_mod_unpacked(pak_file["name"]) else "no"
 
-            item_id = self.treeview.insert("", "end", values=(pak_file["name"], size_str, unpacked), tags=("enabled" if is_enabled else "disabled"))
+            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=(size_str, unpacked, ""), tags=("enabled" if is_enabled else "disabled"))
             self.list_files_for_mod(item_id)
-
-    def on_treeview_click(self, event):
-        item = self.treeview.identify_row(event.y)
-        column = self.treeview.identify_column(event.x)
-        # if column == "#1":  # Check if the click is on the checkbox column
-        #     current_image = treeview.item(item, "image")
-        #     new_image = treeview.check_box if current_image == treeview.check_box_blank else treeview.check_box_blank
-        #     treeview.item(item, image=new_image)
 
     def show_context_menu(self, event):
         if self.context_menu:
@@ -94,7 +91,7 @@ class TreeviewManager:
 
     def attach_files_to_mod(self, itemId, files):
         for file in files:
-            self.treeview.insert(itemId, ttk.END, values=(file, "", "", ""), tags=("file",))
+            self.treeview.insert(parent=itemId, index=ttk.END, text=file, values=("", "", ""), tags=("file",))
         self.treeview.item(itemId, open=False)
 
     def unpack_pak(self, itemId):
@@ -145,4 +142,4 @@ class TreeviewManager:
         mod_config.set_mod_order(order)
 
     def get_mod_name_from_item(self, item):
-        return self.treeview.item(item, "values")[0]
+        return self.treeview.item(item, "text")

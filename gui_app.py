@@ -85,7 +85,7 @@ class ModManagerApp:
         
         self.create_toolbar()
         
-        self.treeview_manager = TreeviewManager(self.frame, self, self.mods_directory)
+        self.treeview_manager = TreeviewManager(self.frame, self.mods_directory) 
         
         self.create_status_widget()
 
@@ -142,7 +142,7 @@ class ModManagerApp:
 
     def refresh_pak_files(self):
         self.update_status_widget(text="Rebuilding tree...", text_color="blue", show_progress=True)
-        self.treeview_manager = TreeviewManager(self.frame, self, self.mods_directory)
+        self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)
         self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
     def setup_grid_weights(self):

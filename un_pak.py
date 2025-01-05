@@ -26,7 +26,10 @@ def unpack_single_mod(filename):
             'unpack', pak_path,
             '--output', unpack_dir
         ]
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            print(f"Error unpacking {filename}: {e.stderr}")
 
 def list_files_in_pak(filename):
     if filename.endswith('.pak'):
@@ -40,7 +43,11 @@ def list_files_in_pak(filename):
             '--aes-key', aes_key,
             'list', pak_path
         ]
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-        files = result.stdout.splitlines()
-        stripped_files = [file.replace("Stalker2/Content/GameLite", "") for file in files]
-        return stripped_files
+        try:
+            result = subprocess.run(command, check=True, capture_output=True, text=True)
+            files = result.stdout.splitlines()
+            stripped_files = [file.replace("Stalker2/Content/GameLite", "") for file in files]
+            return stripped_files
+        except subprocess.CalledProcessError as e:
+            print(f"Error listing files in {filename}: {e.stderr}")
+            return []
