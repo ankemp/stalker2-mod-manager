@@ -2,6 +2,8 @@ import os
 import subprocess
 from settings_config import settings_config
 
+aes_key = '0x33A604DF49A07FFD4A4C919962161F5C35A134D37EFA98DB37A34F6450D7D386'
+
 def unpack_mods(selected_mods):
     for filename in selected_mods:
         unpack_single_mod(filename)
@@ -20,7 +22,7 @@ def unpack_single_mod(filename):
         # Unpack the .pak file using the repak CLI tool
         command = [
             repak_binary,
-            '--aes-key', '0x33A604DF49A07FFD4A4C919962161F5C35A134D37EFA98DB37A34F6450D7D386',
+            '--aes-key', aes_key,
             'unpack', pak_path,
             '--output', unpack_dir
         ]
@@ -35,10 +37,10 @@ def list_files_in_pak(filename):
         # List the files in the .pak file using the repak CLI tool
         command = [
             repak_binary,
-            '--aes-key', '0x33A604DF49A07FFD4A4C919962161F5C35A134D37EFA98DB37A34F6450D7D386',
+            '--aes-key', aes_key,
             'list', pak_path
         ]
         result = subprocess.run(command, check=True, capture_output=True, text=True)
         files = result.stdout.splitlines()
-        stripped_files = [file.replace("Stalker2/Content", "") for file in files]
+        stripped_files = [file.replace("Stalker2/Content/GameLite", "") for file in files]
         return stripped_files
