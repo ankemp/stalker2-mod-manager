@@ -1,38 +1,41 @@
 import json
 import os
 
-SETTINGS_FILE = "settings.json"
-DEFAULT_SETTINGS = {
-    "mods_directory": "mods",
-    "repak_path": "",
-    "game_pak_directory": "",
-    "theme": "cosmo",
-    "game_source_cfg_directory": "source"
-}
-settings_state = DEFAULT_SETTINGS.copy()
+class SettingsConfigManager:
+    SETTINGS_FILE = "settings.json"
+    DEFAULT_SETTINGS = {
+        "mods_directory": "mods",
+        "repak_path": "",
+        "game_pak_directory": "",
+        "theme": "cosmo",
+        "game_source_cfg_directory": "source"
+    }
 
-def load_settings():
-    global settings_state
-    if os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "r") as f:
-            try:
-                loaded_settings = json.load(f)
-                settings_state.update({key: loaded_settings.get(key, default) for key, default in DEFAULT_SETTINGS.items()})
-            except json.JSONDecodeError:
-                settings_state = DEFAULT_SETTINGS.copy()
-    else:
-        settings_state = DEFAULT_SETTINGS.copy()
+    def __init__(self):
+        self.settings_state = self.DEFAULT_SETTINGS.copy()
+        self.load_settings()
 
-def get_setting(key):
-    return settings_state.get(key, "")
+    def load_settings(self):
+        if os.path.exists(self.SETTINGS_FILE):
+            with open(self.SETTINGS_FILE, "r") as f:
+                try:
+                    loaded_settings = json.load(f)
+                    self.settings_state.update({key: loaded_settings.get(key, default) for key, default in self.DEFAULT_SETTINGS.items()})
+                except json.JSONDecodeError:
+                    self.settings_state = self.DEFAULT_SETTINGS.copy()
+        else:
+            self.settings_state = self.DEFAULT_SETTINGS.copy()
 
-def set_setting(key, value):
-    settings_state[key] = value
-    save_settings()
+    def get_setting(self, key):
+        return self.settings_state.get(key, "")
 
-def save_settings():
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(settings_state, f, indent=4)
+    def set_setting(self, key, value):
+        self.settings_state[key] = value
+        self.save_settings()
 
-# Load settings initially
-load_settings()
+    def save_settings(self):
+        with open(self.SETTINGS_FILE, "w") as f:
+            json.dump(self.settings_state, f, indent=4)
+
+# Initialize the SettingsConfig class
+settings_config = SettingsConfigManager()

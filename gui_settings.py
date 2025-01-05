@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
-from settings_config import get_setting, set_setting
+from settings_config import settings_config
 from gui_helpers import detect_os
 
 class SettingsUI:
@@ -57,7 +57,7 @@ class SettingsUI:
         self.theme_label = ttk.Label(self.settings_frame, text="Theme:")
         self.theme_label.grid(row=4, column=0, sticky=tk.W)
         
-        self.theme_var = tk.StringVar(value=self.app.theme)
+        self.theme_var = tk.StringVar(value=self.app.style_manager.theme)
         self.theme_dark = ttk.Radiobutton(self.settings_frame, text="Dark", variable=self.theme_var, value="darkly")
         self.theme_dark.grid(row=4, column=1, sticky=tk.W)
         self.theme_light = ttk.Radiobutton(self.settings_frame, text="Light", variable=self.theme_var, value="cosmo")
@@ -100,15 +100,15 @@ class SettingsUI:
         self.app.repak_path = self.repak_entry.get()
         self.app.game_pak_directory = self.game_entry.get()
         self.app.game_source_cfg_directory = self.source_cfg_entry.get()
-        self.app.theme = self.theme_var.get()
-        set_setting("mods_directory", self.mods_directory.get())
-        set_setting("repak_path", self.repak_entry.get())
-        set_setting("game_pak_directory", self.game_entry.get())
-        set_setting("game_source_cfg_directory", self.source_cfg_entry.get())
-        set_setting("theme", self.theme_var.get())
+        self.app.style_manager.theme = self.theme_var.get()
+        settings_config.set_setting("mods_directory", self.mods_directory.get())
+        settings_config.set_setting("repak_path", self.repak_entry.get())
+        settings_config.set_setting("game_pak_directory", self.game_entry.get())
+        settings_config.set_setting("game_source_cfg_directory", self.source_cfg_entry.get())
+        settings_config.set_setting("theme", self.theme_var.get())
         self.settings_window.destroy()
         self.app.refresh_pak_files()
-        self.app.style.theme_use(self.app.theme)
+        self.app.style_manager.style.theme_use(self.app.style_manager.theme)
 
     def browse_directory(self):
         selected_dir = filedialog.askdirectory()

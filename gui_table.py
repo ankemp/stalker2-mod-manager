@@ -2,24 +2,27 @@ import ttkbootstrap as ttk
 from gui_helpers import get_mod_directory, get_pak_files, is_mod_unpacked, get_cfg_files
 from mod_config import mod_config
 from parse import parse_cfg
-from settings_config import get_setting
+from settings_config import settings_config
 from un_pak import unpack_single_mod, list_files_in_pak
 from diff_mod import process_mod_directory
 
 class TreeviewManager:
     def __init__(self, parent, mods_directory):
+        self.parent = parent
+        self.mods_directory = mods_directory
         self.treeview = self.setup_treeview(parent)
         self.populate_treeview(mods_directory)
         self.context_menu = None
 
     def setup_treeview(self, parent):
-        treeview = ttk.Treeview(parent, columns=("name", "size", "unpacked", "conflicts"), selectmode='browse', show="headings")
+        treeview = ttk.Treeview(parent, columns=("name", "size", "unpacked", "conflicts"), selectmode='extended', show="headings", style="Custom.Treeview")
         treeview.heading("name", text="Pak File Name")
         treeview.heading("size", text="Size")
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("conflicts", text="Conflicts")
-        treeview.column("size", anchor="center")
-        treeview.column("unpacked", anchor="center")
+        treeview.column("name", width=600, anchor="w")
+        treeview.column("size", width=100, anchor="center")
+        treeview.column("unpacked", width=50, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
         treeview.tag_configure("enabled", foreground="green")
         treeview.tag_configure("disabled", foreground="red")
@@ -111,7 +114,7 @@ class TreeviewManager:
         cfg_files = get_cfg_files(mod_name)
         for file_path in cfg_files:
             parse_cfg(file_path)
-        process_mod_directory(get_mod_directory(mod_name), get_setting("game_source_cfg_directory"))
+        process_mod_directory(get_mod_directory(mod_name), settings_config.get_setting("game_source_cfg_directory"))
         self.treeview.item(itemId, values=(mod_name, self.treeview.item(itemId, "values")[1], "yes"))
 
     def enable_mod(self, itemId):

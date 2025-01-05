@@ -2,12 +2,13 @@ import ttkbootstrap as ttk
 from tkinter import messagebox
 from gui_table import TreeviewManager
 from mod_config import mod_config
-from settings_config import load_settings, get_setting, set_setting
+from settings_config import settings_config
 from un_pak import list_files_in_pak, unpack_mods
 from gui_helpers import get_cfg_files, get_mod_directory, detect_os, is_repak_installed, install_repak
 from parse import parse_cfg
 from diff_mod import process_mod_directory
 from gui_settings import SettingsUI
+from gui_style import StyleManager
 
 class ModManagerApp:
     def __init__(self, root):
@@ -33,13 +34,12 @@ class ModManagerApp:
             self.root.destroy()
 
     def load_settings(self):
-        load_settings()
-        self.mods_directory = get_setting("mods_directory")
-        self.repak_path = get_setting("repak_path")
-        self.game_pak_directory = get_setting("game_pak_directory")
-        self.game_source_cfg_directory = get_setting("game_source_cfg_directory")
-        self.theme = get_setting("theme") or "cosmo"
-        self.style = ttk.Style(self.theme)
+        settings_config.load_settings()
+        self.mods_directory = settings_config.get_setting("mods_directory")
+        self.repak_path = settings_config.get_setting("repak_path")
+        self.game_pak_directory = settings_config.get_setting("game_pak_directory")
+        self.game_source_cfg_directory = settings_config.get_setting("game_source_cfg_directory")
+        self.style_manager = StyleManager()  # Initialize StyleManager
 
     def check_repak_installation(self):
         if not self.repak_path:
@@ -55,7 +55,7 @@ class ModManagerApp:
             return
         elif response:
             self.repak_path = repak_path
-            set_setting("repak_path", self.repak_path)
+            settings_config.set_setting("repak_path", self.repak_path)
         else:
             self.show_settings()
 
@@ -73,7 +73,7 @@ class ModManagerApp:
         repak_path = install_repak()
         if repak_path:
             self.repak_path = repak_path
-            set_setting("repak_path", self.repak_path)
+            settings_config.set_setting("repak_path", self.repak_path)
             messagebox.showinfo("Repak Installed", f"Repak has been successfully installed at {repak_path}.")
         else:
             messagebox.showerror("Installation Failed", "Failed to install repak.")

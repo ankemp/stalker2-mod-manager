@@ -1,6 +1,6 @@
 import os
 import subprocess
-from settings_config import get_setting
+from settings_config import settings_config
 
 def unpack_mods(selected_mods):
     for filename in selected_mods:
@@ -8,8 +8,8 @@ def unpack_mods(selected_mods):
 
 def unpack_single_mod(filename):
     if filename.endswith('.pak'):
-        repak_binary = get_setting("repak_path")
-        mods_dir = get_setting("mods_directory")
+        repak_binary = settings_config.get_setting("repak_path")
+        mods_dir = settings_config.get_setting("mods_directory")
         pak_path = os.path.join(mods_dir, filename)
         unpack_dir = os.path.join("unpacked", os.path.splitext(filename)[0])
         
@@ -28,8 +28,8 @@ def unpack_single_mod(filename):
 
 def list_files_in_pak(filename):
     if filename.endswith('.pak'):
-        repak_binary = get_setting("repak_path")
-        mods_dir = get_setting("mods_directory")
+        repak_binary = settings_config.get_setting("repak_path")
+        mods_dir = settings_config.get_setting("mods_directory")
         pak_path = os.path.join(mods_dir, filename)
         
         # List the files in the .pak file using the repak CLI tool
