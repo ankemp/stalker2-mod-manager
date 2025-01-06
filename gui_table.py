@@ -68,7 +68,7 @@ class TreeviewManager:
         if self.context_menu:
             self.context_menu.unpost()
         itemId = self.treeview.identify_row(event.y)
-        if itemId:
+        if itemId and not self.treeview.parent(itemId):
             self.treeview.selection_set(itemId)
             mod_name = self.get_mod_name_from_item(itemId)
             self.context_menu = ttk.Menu(self.treeview, title=mod_name, tearoff=0)
