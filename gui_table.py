@@ -18,16 +18,18 @@ class TreeviewManager:
         treeview = ttk.Treeview(
             self.parent,
             bootstyle='secondary',
-            columns=("size", "unpacked", "conflicts"),
+            columns=("size", "enabled", "unpacked", "conflicts"),
             selectmode='extended',
             show="tree headings",
             height=15,
         )
         treeview.heading("size", text="Size")
+        treeview.heading("enabled", text="Enabled")
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("conflicts", text="Conflicts")
         treeview.column("#0", width=500, anchor="w")
         treeview.column("size", width=35, anchor="center")
+        treeview.column("enabled", width=65, anchor="center")
         treeview.column("unpacked", width=65, anchor="center")
         treeview.column("conflicts", width=150, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
@@ -57,9 +59,10 @@ class TreeviewManager:
                 size_str = f"{size_kb} KB"
             
             is_enabled = mod_config.is_mod_enabled(pak_file["name"])
+            enabled_str = "yes" if is_enabled else "no"
             unpacked = "yes" if is_mod_unpacked(pak_file["name"]) else "no"
 
-            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=(size_str, unpacked, ""), tags=("enabled" if is_enabled else "disabled"))
+            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=(size_str, enabled_str, unpacked, ""), tags=("enabled" if is_enabled else "disabled"))
             self.list_files_for_mod(item_id)
             
         self.find_conflicts()
@@ -125,6 +128,7 @@ class TreeviewManager:
         else:
             tags = ["enabled"]
         self.treeview.item(itemId, tags=tags)
+        self.treeview.set(itemId, "enabled", "yes")
 
     def disable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
@@ -136,6 +140,7 @@ class TreeviewManager:
         else:
             tags = ["disabled"]
         self.treeview.item(itemId, tags=tags)
+        self.treeview.set(itemId, "enabled", "no")
 
     def enable_all_mods(self):
         for item in self.treeview.get_children():
