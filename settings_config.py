@@ -1,5 +1,6 @@
 import json
 import os
+from config_helper import load_json, save_json
 
 class SettingsConfigManager:
     SETTINGS_FILE = "settings.json"
@@ -16,15 +17,7 @@ class SettingsConfigManager:
         self.load_settings()
 
     def load_settings(self):
-        if os.path.exists(self.SETTINGS_FILE):
-            with open(self.SETTINGS_FILE, "r") as f:
-                try:
-                    loaded_settings = json.load(f)
-                    self.settings_state.update({key: loaded_settings.get(key, default) for key, default in self.DEFAULT_SETTINGS.items()})
-                except json.JSONDecodeError:
-                    self.settings_state = self.DEFAULT_SETTINGS.copy()
-        else:
-            self.settings_state = self.DEFAULT_SETTINGS.copy()
+        self.settings_state = load_json(self.SETTINGS_FILE, self.DEFAULT_SETTINGS.copy())
 
     def get_setting(self, key):
         return self.settings_state.get(key, "")
@@ -34,8 +27,7 @@ class SettingsConfigManager:
         self.save_settings()
 
     def save_settings(self):
-        with open(self.SETTINGS_FILE, "w") as f:
-            json.dump(self.settings_state, f, indent=4)
+        save_json(self.SETTINGS_FILE, self.settings_state)
 
 # Initialize the SettingsConfig class
 settings_config = SettingsConfigManager()

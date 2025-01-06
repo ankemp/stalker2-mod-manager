@@ -1,5 +1,6 @@
 import json
 import os
+from config_helper import load_json, save_json
 
 class ModConfigManager:
     MODS_ORDER_FILE = "mods.json"
@@ -12,22 +13,10 @@ class ModConfigManager:
         self.load_mods_config()
 
     def load_mods_config(self):
-        if os.path.exists(self.MODS_ORDER_FILE):
-            with open(self.MODS_ORDER_FILE, "r") as f:
-                try:
-                    self.mods_state = json.load(f)
-                    self.mods_state.setdefault("enabled", {})
-                    self.mods_state.setdefault("order", [])
-                except json.JSONDecodeError:
-                    self.mods_state = {
-                        "enabled": {},
-                        "order": []
-                    }
-        else:
-            self.mods_state = {
-                "enabled": {},
-                "order": []
-            }
+        self.mods_state = load_json(self.MODS_ORDER_FILE, {
+            "enabled": {},
+            "order": []
+        })
 
     def get_enabled_mods(self):
         return [mod for mod, enabled in self.mods_state["enabled"].items() if enabled]
@@ -54,8 +43,7 @@ class ModConfigManager:
         self.save_mods_config()
 
     def save_mods_config(self):
-        with open(self.MODS_ORDER_FILE, "w") as f:
-            json.dump(self.mods_state, f, indent=4)
+        save_json(self.MODS_ORDER_FILE, self.mods_state)
 
 # Initialize the ModConfig class
 mod_config = ModConfigManager()
