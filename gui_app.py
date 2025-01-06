@@ -105,16 +105,10 @@ class ModManagerApp:
         self.config_button.grid(row=0, column=2, padx=5, sticky=ttk.E)
 
     def enable_all_mods(self):
-        for item in self.treeview_manager.treeview.get_children():
-            mod_name = self.treeview_manager.get_mod_name_from_item(item)
-            mod_config.set_mod_enabled(mod_name, True)
-            self.treeview_manager.treeview.item(item, tags="enabled")
+        self.treeview_manager.enable_all_mods()
 
     def disable_all_mods(self):
-        for item in self.treeview_manager.treeview.get_children():
-            mod_name = self.treeview_manager.get_mod_name_from_item(item)
-            mod_config.set_mod_enabled(mod_name, False)
-            self.treeview_manager.treeview.item(item, tags="disabled")
+        self.treeview_manager.disable_all_mods()
 
     def refresh_pak_files(self):
         self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)

@@ -118,12 +118,36 @@ class TreeviewManager:
     def enable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
         mod_config.set_mod_enabled(mod_name, True)
-        self.treeview.item(itemId, tags="enabled")
+        tags = list(self.treeview.item(itemId, "tags"))
+        if "conflict" in tags:
+            tags.remove("conflict")
+            tags.insert(0, "conflict")
+        else:
+            tags = ["enabled"]
+        self.treeview.item(itemId, tags=tags)
 
     def disable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
         mod_config.set_mod_enabled(mod_name, False)
-        self.treeview.item(itemId, tags="disabled")
+        tags = list(self.treeview.item(itemId, "tags"))
+        if "conflict" in tags:
+            tags.remove("conflict")
+            tags.insert(0, "conflict")
+        else:
+            tags = ["disabled"]
+        self.treeview.item(itemId, tags=tags)
+
+    def enable_all_mods(self):
+        for item in self.treeview.get_children():
+            mod_name = self.get_mod_name_from_item(item)
+            mod_config.set_mod_enabled(mod_name, True)
+            self.enable_mod(item)
+
+    def disable_all_mods(self):
+        for item in self.treeview.get_children():
+            mod_name = self.get_mod_name_from_item(item)
+            mod_config.set_mod_enabled(mod_name, False)
+            self.disable_mod(item)
 
     def move_to_top(self, itemId):
         self.treeview.move(itemId, '', 0)
