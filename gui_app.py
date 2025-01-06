@@ -69,7 +69,6 @@ class ModManagerApp:
             self.show_settings()
 
     def download_repak(self):
-        self.update_status_widget(text="Downloading and installing repak...", text_color="blue", show_progress=True)
         repak_path = install_repak()
         if repak_path:
             self.repak_path = repak_path
@@ -77,7 +76,6 @@ class ModManagerApp:
             messagebox.showinfo("Repak Installed", f"Repak has been successfully installed at {repak_path}.")
         else:
             messagebox.showerror("Installation Failed", "Failed to install repak.")
-        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
     def setup_ui(self):
         self.frame = ttk.Frame(self.root, padding="10")
@@ -86,8 +84,6 @@ class ModManagerApp:
         self.create_toolbar()
         
         self.treeview_manager = TreeviewManager(self.frame, self.mods_directory) 
-        
-        self.create_status_widget()
 
     def create_toolbar(self):
         self.toolbar = ttk.Frame(self.frame, padding="5")
@@ -108,26 +104,6 @@ class ModManagerApp:
         self.config_button = ttk.Button(self.toolbar, text="Config", command=self.show_settings)
         self.config_button.grid(row=0, column=2, padx=5, sticky=ttk.E)
 
-    def create_status_widget(self):
-        self.status_frame = ttk.Frame(self.frame, padding="5")
-        self.status_frame.grid(row=2, column=0, columnspan=4, sticky=(ttk.W, ttk.E, ttk.N, ttk.S))
-        
-        self.status_label = ttk.Label(self.status_frame, text="Ready", foreground="green")
-        self.status_label.grid(row=0, column=1, sticky=(ttk.E))
-        
-        self.progress_bar = ttk.Progressbar(self.status_frame, mode="indeterminate", maximum=130)
-        self.progress_bar.grid(row=0, column=2, sticky=(ttk.E))
-        self.progress_bar.grid_remove()
-
-    def update_status_widget(self, text="Ready", text_color="green", show_progress=False):
-        self.status_label.config(text=text, foreground=text_color)
-        if show_progress:
-            self.progress_bar.grid()
-            self.progress_bar.start()
-        else:
-            self.progress_bar.grid_remove()
-            self.progress_bar.stop()
-
     def enable_all_mods(self):
         for item in self.treeview_manager.treeview.get_children():
             mod_name = self.treeview_manager.get_mod_name_from_item(item)
@@ -141,9 +117,7 @@ class ModManagerApp:
             self.treeview_manager.treeview.item(item, tags="disabled")
 
     def refresh_pak_files(self):
-        self.update_status_widget(text="Rebuilding tree...", text_color="blue", show_progress=True)
         self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)
-        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
     def setup_grid_weights(self):
         self.root.columnconfigure(0, weight=1)
@@ -155,21 +129,17 @@ class ModManagerApp:
         SettingsUI(self.root, self)
 
     def unpack_all_mods(self):
-        self.update_status_widget(text="Unpacking all mods...", text_color="blue", show_progress=True)
         selected_mods = [self.treeview_manager.treeview.item(item, "values")[0] for item in self.treeview_manager.treeview.get_children()]
         unpack_mods(selected_mods)
-        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
         self.refresh_pak_files()
 
     def analyze_all_mods(self):
-        self.update_status_widget(text="Analyzing all mods...", text_color="blue", show_progress=True)
         selected_mods = [self.treeview_manager.treeview.item(item, "values")[0] for item in self.treeview_manager.treeview.get_children()]
         for mod_name in selected_mods:
             cfg_files = get_cfg_files(mod_name)
             for file_path in cfg_files:
                 parse_cfg(file_path)
             process_mod_directory(get_mod_directory(mod_name), self.game_source_cfg_directory)
-        self.update_status_widget(text="Ready", text_color="green", show_progress=False)
 
 if __name__ == "__main__":
     root = ttk.tk.Tk()
