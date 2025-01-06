@@ -42,6 +42,12 @@ class TreeviewManager:
     def populate_treeview(self):
         mod_config.load_mods_config()
         pak_files = get_pak_files(self.mods_directory)
+        
+        # Get the order from mod_config
+        mod_order = mod_config.get_mod_order()
+        if mod_order:
+            pak_files.sort(key=lambda x: mod_order.index(x["name"]) if x["name"] in mod_order else len(mod_order))
+        
         for pak_file in pak_files:
             size = pak_file["size"]
             if size < 1024:
