@@ -41,6 +41,15 @@ class TreeviewManager:
         
         return treeview
 
+    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", conflicts=""):
+        if itemId:
+            current_values = self.treeview.item(itemId, "values")
+            size = size or current_values[0]
+            enabled = enabled or current_values[1]
+            unpacked = unpacked or current_values[2]
+            conflicts = conflicts or current_values[3]
+        return (size, enabled, unpacked, conflicts)
+
     def populate_treeview(self):
         mod_config.load_mods_config()
         pak_files = get_pak_files(self.mods_directory)
@@ -62,7 +71,7 @@ class TreeviewManager:
             enabled_str = "yes" if is_enabled else "no"
             unpacked = "yes" if is_mod_unpacked(pak_file["name"]) else "no"
 
-            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=(size_str, enabled_str, unpacked, ""), tags=("enabled" if is_enabled else "disabled"))
+            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=self.set_treeview_values(size=size_str, enabled=enabled_str, unpacked=unpacked), tags=("enabled" if is_enabled else "disabled"))
             self.list_files_for_mod(item_id)
             
         self.find_conflicts()
@@ -102,13 +111,13 @@ class TreeviewManager:
 
     def attach_files_to_mod(self, itemId, files):
         for file in files:
-            self.treeview.insert(parent=itemId, index=ttk.END, text=file, values=("", "", ""), tags=("file",))
+            self.treeview.insert(parent=itemId, index=ttk.END, text=file, values=self.set_treeview_values(), tags=("file",))
         self.treeview.item(itemId, open=False)
 
     def unpack_pak(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
         unpack_single_mod(mod_name)
-        self.treeview.item(itemId, values=(mod_name, self.treeview.item(itemId, "values")[1], "yes"))
+        self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, unpacked="yes"))
 
     def analyze_pak(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
@@ -116,7 +125,7 @@ class TreeviewManager:
         for file_path in cfg_files:
             parse_cfg(file_path)
         process_mod_directory(get_mod_directory(mod_name), settings_config.get_setting("game_source_cfg_directory"))
-        self.treeview.item(itemId, values=(mod_name, self.treeview.item(itemId, "values")[1], "yes"))
+        self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, unpacked="yes"))
 
     def enable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
@@ -198,8 +207,6 @@ class TreeviewManager:
                     self.treeview.item(parent, tags="conflict")
                     self.treeview.item(child, tags="conflict")
                     other_parents = [self.treeview.item(p, "text") for j, (p, c) in enumerate(items) if i != j]
-                    conflict_text = ', '.join(other_parents)
-                    self.treeview.set(child, "conflicts", conflict_text)
-                    conflict_text = f"{len(items)} conflicts with {len(other_parents)} mods"
-                    self.treeview.set(parent, "conflicts", conflict_text)
+                    for other_parent in other_parents:
+                        self.treeview.insert(parent=child, index=ttk.END, text="", values=self.set_treeview_values(conflicts=other_parent), tags=("conflict",), open=True)
 
