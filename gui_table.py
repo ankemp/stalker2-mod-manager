@@ -6,6 +6,7 @@ from settings_config import settings_config
 from un_pak import unpack_single_mod, list_files_in_pak, unpack_mods
 from diff_mod import process_mod_directory
 from gui_logs import add_log
+import subprocess
 
 class TreeviewManager:
     def __init__(self, parent, mods_directory):
@@ -82,29 +83,50 @@ class TreeviewManager:
         if self.context_menu:
             self.context_menu.unpost()
         itemId = self.treeview.identify_row(event.y)
-        if itemId and not self.treeview.parent(itemId):
+        if itemId:
             self.treeview.selection_set(itemId)
             mod_name = self.get_mod_name_from_item(itemId)
             self.context_menu = ttk.Menu(self.treeview, title=mod_name, tearoff=0)
-            if self.treeview.tag_has("enabled", itemId):
-                self.context_menu.add_command(label="Disable", command=lambda: self.disable_mod(itemId))
+            if not self.treeview.parent(itemId):
+                if self.treeview.tag_has("enabled", itemId):
+                    self.context_menu.add_command(label="Disable", command=lambda: self.disable_mod(itemId))
+                else:
+                    self.context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
+                self.context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
+                self.context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
+                # self.context_menu.add_command(label="List Pak Files", command=lambda: self.list_files_for_mod(itemId))
+                
+                index = self.treeview.index(itemId)
+                if len(self.treeview.get_children()) > 1:
+                    self.context_menu.add_separator()
+                    if index > 0:
+                        self.context_menu.add_command(label="Move to Top", command=lambda: self.move_to_top(itemId))
+                        self.context_menu.add_command(label="Move Up One", command=lambda: self.move_up_one(itemId))
+                    if index < len(self.treeview.get_children()) - 1:
+                        self.context_menu.add_command(label="Move Down One", command=lambda: self.move_down_one(itemId))
+                        self.context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
             else:
-                self.context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
-            self.context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
-            self.context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
-            # self.context_menu.add_command(label="List Pak Files", command=lambda: self.list_files_for_mod(itemId))
-            
-            index = self.treeview.index(itemId)
-            if len(self.treeview.get_children()) > 1:
-                self.context_menu.add_separator()
-                if index > 0:
-                    self.context_menu.add_command(label="Move to Top", command=lambda: self.move_to_top(itemId))
-                    self.context_menu.add_command(label="Move Up One", command=lambda: self.move_up_one(itemId))
-                if index < len(self.treeview.get_children()) - 1:
-                    self.context_menu.add_command(label="Move Down One", command=lambda: self.move_down_one(itemId))
-                    self.context_menu.add_command(label="Move to Bottom", command=lambda: self.move_to_bottom(itemId))
+                self.context_menu.add_command(label="Open in Notepad", command=lambda: self.open_in_notepad(itemId))
+                self.context_menu.add_command(label="Copy File Path", command=lambda: self.copy_file_path(itemId))
 
             self.context_menu.post(event.x_root, event.y_root)
+
+    def open_in_notepad(self, itemId):
+        mod_name = self.get_mod_name_from_item(self.treeview.parent(itemId))
+        file_path = self.treeview.item(itemId, "text")
+        mod_name = mod_name.replace(".pak", "")
+        full_path = f"unpacked/{mod_name}/Stalker2/Content/Gamelite/{file_path}"
+        subprocess.Popen(["notepad.exe", full_path])
+        add_log(f"Opened file in Notepad: {full_path}")
+
+    def copy_file_path(self, itemId):
+        mod_name = self.get_mod_name_from_item(self.treeview.parent(itemId))
+        file_path = self.treeview.item(itemId, "text")
+        mod_name = mod_name.replace(".pak", "")
+        full_path = f"unpacked/{mod_name}/Stalker2/Content/Gamelite/{file_path}"
+        self.parent.clipboard_clear()
+        self.parent.clipboard_append(full_path)
+        add_log(f"Copied file path to clipboard: {full_path}")
 
     def list_files_for_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
