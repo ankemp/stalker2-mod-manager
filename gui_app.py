@@ -121,6 +121,12 @@ class ModManagerApp:
     def disable_all_mods(self):
         self.treeview_manager.disable_all_mods()
 
+    def unpack_all_mods(self):
+        self.treeview_manager.unpack_all_mods()
+
+    def analyze_all_mods(self):
+        self.treeview_manager.analyze_all_mods()
+
     def refresh_pak_files(self):
         self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)
         add_log("Refreshed pak files.")
@@ -134,21 +140,6 @@ class ModManagerApp:
     def show_settings(self):
         SettingsUI(self.root, self)
         add_log("Opened settings window.")
-
-    def unpack_all_mods(self):
-        selected_mods = [self.treeview_manager.treeview.item(item, "values")[0] for item in self.treeview_manager.treeview.get_children()]
-        unpack_mods(selected_mods)
-        self.refresh_pak_files()
-        add_log("Unpacked all mods.")
-
-    def analyze_all_mods(self):
-        selected_mods = [self.treeview_manager.treeview.item(item, "values")[0] for item in self.treeview_manager.treeview.get_children()]
-        for mod_name in selected_mods:
-            cfg_files = get_cfg_files(mod_name)
-            for file_path in cfg_files:
-                parse_cfg(file_path)
-            process_mod_directory(get_mod_directory(mod_name), self.game_source_cfg_directory)
-        add_log("Analyzed all mods.")
 
 if __name__ == "__main__":
     root = ttk.tk.Tk()

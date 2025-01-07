@@ -3,7 +3,7 @@ from gui_helpers import get_mod_directory, get_pak_files, is_mod_unpacked, get_c
 from mod_config import mod_config
 from parse import parse_cfg
 from settings_config import settings_config
-from un_pak import unpack_single_mod, list_files_in_pak
+from un_pak import unpack_single_mod, list_files_in_pak, unpack_mods
 from diff_mod import process_mod_directory
 from gui_logs import add_log
 
@@ -92,7 +92,7 @@ class TreeviewManager:
                 self.context_menu.add_command(label="Enable", command=lambda: self.enable_mod(itemId))
             self.context_menu.add_command(label="Unpack Pak", command=lambda: self.unpack_pak(itemId))
             self.context_menu.add_command(label="Analyze Pak", command=lambda: self.analyze_pak(itemId))
-            self.context_menu.add_command(label="List Pak Files", command=lambda: self.list_files_for_mod(itemId))
+            # self.context_menu.add_command(label="List Pak Files", command=lambda: self.list_files_for_mod(itemId))
             
             index = self.treeview.index(itemId)
             if len(self.treeview.get_children()) > 1:
@@ -171,6 +171,17 @@ class TreeviewManager:
             mod_config.set_mod_enabled(mod_name, False)
             self.disable_mod(item)
         add_log("Disabled all mods.")
+
+    def unpack_all_mods(self):
+        selected_mods = [self.get_mod_name_from_item(item) for item in self.treeview.get_children()]
+        unpack_mods(selected_mods)
+        self.populate_treeview()
+        add_log("Unpacked all mods.")
+
+    def analyze_all_mods(self):
+        for item in self.treeview.get_children():
+            self.analyze_pak(item)
+        add_log("Analyzed all mods.")
 
     def move_to_top(self, itemId):
         self.treeview.move(itemId, '', 0)

@@ -14,10 +14,10 @@ def unpack_single_mod(filename):
         mods_dir = settings_config.get_setting("mods_directory")
         pak_path = os.path.join(mods_dir, filename)
         unpack_dir = os.path.join("unpacked", os.path.splitext(filename)[0])
-        
-        # Ensure the "unpacked" directory exists
-        if not os.path.exists("unpacked"):
-            os.makedirs("unpacked")
+
+        # Ensure the specific unpack directory exists
+        if not os.path.exists(unpack_dir):
+            os.makedirs(unpack_dir)
         
         # Unpack the .pak file using the repak CLI tool
         command = [
