@@ -44,6 +44,13 @@ def clear_tmp_directory(tmp_directory):
         shutil.rmtree(tmp_directory)
     os.makedirs(tmp_directory, exist_ok=True)
 
+def rename_file(file_path):
+    directory, filename = os.path.split(file_path)
+    new_filename = filename.lstrip('z').replace('_P', '', 1).replace('_', '', 1)
+    new_file_path = os.path.join(directory, new_filename)
+    os.rename(file_path, new_file_path)
+    return new_file_path
+
 def process_mod_directory(mod_directory, source_directory, tmp_directory = 'tmp'):
 
     clear_tmp_directory(tmp_directory)
@@ -56,7 +63,8 @@ def process_mod_directory(mod_directory, source_directory, tmp_directory = 'tmp'
         
         parse_and_store(mod_file, mod_output)
         parse_and_store(source_file, source_output)
-        compare_and_store(mod_output, source_output, diff_output)
+
+        compare_and_store(source_output, mod_output, diff_output)
 
         # Generate overrides from the diff file
         diff_data = load_json(diff_output)
@@ -66,6 +74,14 @@ def process_mod_directory(mod_directory, source_directory, tmp_directory = 'tmp'
             overrides_file.write(overrides)
         
         print(f"Overrides created successfully at {overrides_output_path}.")
+
+        # Copy override file back into the original mod file location
+        shutil.copy(overrides_output_path, mod_file)
+        print(f"Copied override file to {mod_file}.")
+        
+        # Rename the new override file
+        renamed_file_path = rename_file(mod_file)
+        print(f"Renamed override file to {renamed_file_path}.")
 
 def main():
     if len(sys.argv) < 3:
