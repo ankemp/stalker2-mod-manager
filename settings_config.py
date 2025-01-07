@@ -9,7 +9,9 @@ class SettingsConfigManager:
         "repak_path": "",
         "game_pak_directory": "",
         "theme": "cosmo",
-        "game_source_cfg_directory": "source"
+        "game_source_cfg_directory": "source",
+        "log_file_path": "",
+        "log_to_file": False
     }
 
     def __init__(self):

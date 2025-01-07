@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
@@ -12,7 +13,7 @@ class SettingsUI:
         self.settings_window = tk.Toplevel(self.root)
         self.settings_window.title("Settings")
         
-        self.settings_frame = ttk.Frame(self.settings_window, padding="10")
+        self.settings_frame = ttk.Frame(self.settings_window, padding="5")
         self.settings_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         self.dir_label = ttk.Label(self.settings_frame, text="Mods Directory:")
@@ -54,18 +55,32 @@ class SettingsUI:
         
         self.source_cfg_browse_button = ttk.Button(self.settings_frame, text="Browse", command=self.browse_source_cfg_directory)
         self.source_cfg_browse_button.grid(row=3, column=2, padx=5, pady=5)
+
+        self.log_file_label = ttk.Label(self.settings_frame, text="Log File Path:")
+        self.log_file_label.grid(row=4, column=0, sticky=tk.W, pady=5)
+
+        self.log_file_entry = ttk.Entry(self.settings_frame, width=50)
+        self.log_file_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=5)
+        self.log_file_entry.insert(0, settings_config.get_setting("log_file_path"))
+
+        self.log_file_browse_button = ttk.Button(self.settings_frame, text="Browse", command=self.browse_log_file)
+        self.log_file_browse_button.grid(row=4, column=2, padx=5, pady=5)
+
+        self.log_to_file_var = tk.BooleanVar(value=settings_config.get_setting("log_to_file"))
+        self.log_to_file_check = ttk.Checkbutton(self.settings_frame, text="Log to File", variable=self.log_to_file_var)
+        self.log_to_file_check.grid(row=4, column=3, columnspan=3, pady=5)
         
         self.theme_label = ttk.Label(self.settings_frame, text="Theme:")
-        self.theme_label.grid(row=4, column=0, sticky=tk.W, pady=5)
+        self.theme_label.grid(row=6, column=0, sticky=tk.W, pady=5)
         
         self.theme_var = tk.StringVar(value=self.app.style_manager.theme)
         self.theme_dark = ttk.Radiobutton(self.settings_frame, text="Dark", variable=self.theme_var, value="darkly")
-        self.theme_dark.grid(row=4, column=1, sticky=tk.W, pady=5)
+        self.theme_dark.grid(row=6, column=1, sticky=tk.W, pady=5)
         self.theme_light = ttk.Radiobutton(self.settings_frame, text="Light", variable=self.theme_var, value="cosmo")
-        self.theme_light.grid(row=4, column=2, sticky=tk.W, pady=5)
+        self.theme_light.grid(row=6, column=2, sticky=tk.W, pady=5)
         
         self.save_button = ttk.Button(self.settings_frame, text="Save", command=self.save_settings)
-        self.save_button.grid(row=5, column=0, columnspan=3, pady=10)
+        self.save_button.grid(row=7, column=0, columnspan=3, pady=10)
 
     def browse_mods_directory(self):
         initialdir = self.mods_directory.get() if self.mods_directory.get() else None
@@ -104,6 +119,13 @@ class SettingsUI:
             self.source_cfg_entry.delete(0, tk.END)
             self.source_cfg_entry.insert(0, selected_dir)
 
+    def browse_log_file(self):
+        initialdir = os.path.dirname(self.log_file_entry.get()) if self.log_file_entry.get() else None
+        selected_file = filedialog.asksaveasfilename(parent=self.settings_window, initialdir=initialdir, defaultextension=".log", filetypes=[("Log files", "*.log"), ("All files", "*.*")])
+        if selected_file:
+            self.log_file_entry.delete(0, tk.END)
+            self.log_file_entry.insert(0, selected_file)
+
     def save_settings(self):
         self.app.mods_directory = self.mods_directory.get()
         self.app.repak_path = self.repak_entry.get()
@@ -115,6 +137,8 @@ class SettingsUI:
         settings_config.set_setting("game_pak_directory", self.game_entry.get())
         settings_config.set_setting("game_source_cfg_directory", self.source_cfg_entry.get())
         settings_config.set_setting("theme", self.theme_var.get())
+        settings_config.set_setting("log_file_path", self.log_file_entry.get())
+        settings_config.set_setting("log_to_file", self.log_to_file_var.get())
         self.settings_window.destroy()
         self.app.refresh_pak_files()
         self.app.style_manager.style.theme_use(self.app.style_manager.theme)

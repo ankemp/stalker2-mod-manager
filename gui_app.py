@@ -9,6 +9,7 @@ from parse import parse_cfg
 from diff_mod import process_mod_directory
 from gui_settings import SettingsUI
 from gui_style import StyleManager
+from gui_logs import initialize_log_ui, add_log
 
 class ModManagerApp:
     def __init__(self, root):
@@ -29,8 +30,10 @@ class ModManagerApp:
 
     def check_os_support(self):
         os_type = detect_os()
+        add_log(f"Detected OS: {os_type}")
         if os_type == 'unsupported':
             messagebox.showerror("Unsupported OS", "Your operating system is not supported.")
+            add_log("Unsupported OS detected. Application will close.")
             self.root.destroy()
 
     def load_settings(self):
@@ -40,6 +43,7 @@ class ModManagerApp:
         self.game_pak_directory = settings_config.get_setting("game_pak_directory")
         self.game_source_cfg_directory = settings_config.get_setting("game_source_cfg_directory")
         self.style_manager = StyleManager()
+        add_log("Settings loaded.")
 
     def check_repak_installation(self):
         if not self.repak_path:
@@ -52,16 +56,19 @@ class ModManagerApp:
     def prompt_repak_installed(self, repak_path):
         response = messagebox.askyesnocancel("Repak Detected", f"Repak is installed at {repak_path}. Do you want to set this as the repak path, or select your own repak location?")
         if response is None:
+            add_log("Repak installation prompt cancelled.")
             return
         elif response:
             self.repak_path = repak_path
             settings_config.set_setting("repak_path", self.repak_path)
+            add_log(f"Repak path set to {repak_path}.")
         else:
             self.show_settings()
 
     def prompt_repak_not_installed(self):
         response = messagebox.askyesnocancel("Repak Not Detected", "Repak is not installed. Do you want to download and install it now, or select your own repak location?")
         if response is None:
+            add_log("Repak installation prompt cancelled.")
             return
         elif response:
             self.download_repak()
@@ -74,8 +81,10 @@ class ModManagerApp:
             self.repak_path = repak_path
             settings_config.set_setting("repak_path", self.repak_path)
             messagebox.showinfo("Repak Installed", f"Repak has been successfully installed at {repak_path}.")
+            add_log(f"Repak installed at {repak_path}.")
         else:
             messagebox.showerror("Installation Failed", "Failed to install repak.")
+            add_log("Failed to install repak.")
 
     def setup_ui(self):
         self.frame = ttk.Frame(self.root, padding="10")
@@ -83,7 +92,9 @@ class ModManagerApp:
         
         self.create_toolbar()
         
-        self.treeview_manager = TreeviewManager(self.frame, self.mods_directory) 
+        self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)
+        initialize_log_ui(self.root)
+        add_log("UI setup complete.")
 
     def create_toolbar(self):
         self.toolbar = ttk.Frame(self.frame, padding="5")
@@ -112,6 +123,7 @@ class ModManagerApp:
 
     def refresh_pak_files(self):
         self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)
+        add_log("Refreshed pak files.")
 
     def setup_grid_weights(self):
         self.root.columnconfigure(0, weight=1)
@@ -121,11 +133,13 @@ class ModManagerApp:
 
     def show_settings(self):
         SettingsUI(self.root, self)
+        add_log("Opened settings window.")
 
     def unpack_all_mods(self):
         selected_mods = [self.treeview_manager.treeview.item(item, "values")[0] for item in self.treeview_manager.treeview.get_children()]
         unpack_mods(selected_mods)
         self.refresh_pak_files()
+        add_log("Unpacked all mods.")
 
     def analyze_all_mods(self):
         selected_mods = [self.treeview_manager.treeview.item(item, "values")[0] for item in self.treeview_manager.treeview.get_children()]
@@ -134,6 +148,7 @@ class ModManagerApp:
             for file_path in cfg_files:
                 parse_cfg(file_path)
             process_mod_directory(get_mod_directory(mod_name), self.game_source_cfg_directory)
+        add_log("Analyzed all mods.")
 
 if __name__ == "__main__":
     root = ttk.tk.Tk()

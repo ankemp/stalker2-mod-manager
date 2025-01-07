@@ -5,6 +5,7 @@ from parse import parse_cfg
 from settings_config import settings_config
 from un_pak import unpack_single_mod, list_files_in_pak
 from diff_mod import process_mod_directory
+from gui_logs import add_log
 
 class TreeviewManager:
     def __init__(self, parent, mods_directory):
@@ -73,7 +74,8 @@ class TreeviewManager:
 
             item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=self.set_treeview_values(size=size_str, enabled=enabled_str, unpacked=unpacked), tags=("enabled" if is_enabled else "disabled"))
             self.list_files_for_mod(item_id)
-            
+        
+        add_log("Treeview populated with mod files.")
         self.find_conflicts()
 
     def show_context_menu(self, event):
@@ -108,6 +110,7 @@ class TreeviewManager:
         mod_name = self.get_mod_name_from_item(itemId)
         files = list_files_in_pak(mod_name)
         self.attach_files_to_mod(itemId, files)
+        add_log(f"Listed files for mod: {mod_name}")
 
     def attach_files_to_mod(self, itemId, files):
         for file in files:
@@ -118,6 +121,7 @@ class TreeviewManager:
         mod_name = self.get_mod_name_from_item(itemId)
         unpack_single_mod(mod_name)
         self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, unpacked="yes"))
+        add_log(f"Unpacked pak for mod: {mod_name}")
 
     def analyze_pak(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
@@ -126,6 +130,7 @@ class TreeviewManager:
             parse_cfg(file_path)
         process_mod_directory(get_mod_directory(mod_name), settings_config.get_setting("game_source_cfg_directory"))
         self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, unpacked="yes"))
+        add_log(f"Analyzed pak for mod: {mod_name}")
 
     def enable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
@@ -138,6 +143,7 @@ class TreeviewManager:
             tags = ["enabled"]
         self.treeview.item(itemId, tags=tags)
         self.treeview.set(itemId, "enabled", "yes")
+        add_log(f"Enabled mod: {mod_name}")
 
     def disable_mod(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
@@ -150,42 +156,50 @@ class TreeviewManager:
             tags = ["disabled"]
         self.treeview.item(itemId, tags=tags)
         self.treeview.set(itemId, "enabled", "no")
+        add_log(f"Disabled mod: {mod_name}")
 
     def enable_all_mods(self):
         for item in self.treeview.get_children():
             mod_name = self.get_mod_name_from_item(item)
             mod_config.set_mod_enabled(mod_name, True)
             self.enable_mod(item)
+        add_log("Enabled all mods.")
 
     def disable_all_mods(self):
         for item in self.treeview.get_children():
             mod_name = self.get_mod_name_from_item(item)
             mod_config.set_mod_enabled(mod_name, False)
             self.disable_mod(item)
+        add_log("Disabled all mods.")
 
     def move_to_top(self, itemId):
         self.treeview.move(itemId, '', 0)
         self.update_mod_order()
+        add_log(f"Moved mod to top: {self.get_mod_name_from_item(itemId)}")
 
     def move_up_one(self, itemId):
         index = self.treeview.index(itemId)
         if index > 0:
             self.treeview.move(itemId, '', index - 1)
             self.update_mod_order()
+            add_log(f"Moved mod up one: {self.get_mod_name_from_item(itemId)}")
 
     def move_down_one(self, itemId):
         index = self.treeview.index(itemId)
         if index < len(self.treeview.get_children()) - 1:
             self.treeview.move(itemId, '', index + 1)
             self.update_mod_order()
+            add_log(f"Moved mod down one: {self.get_mod_name_from_item(itemId)}")
 
     def move_to_bottom(self, itemId):
         self.treeview.move(itemId, '', ttk.END)
         self.update_mod_order()
+        add_log(f"Moved mod to bottom: {self.get_mod_name_from_item(itemId)}")
 
     def update_mod_order(self):
         order = [self.get_mod_name_from_item(item) for item in self.treeview.get_children()]
         mod_config.set_mod_order(order)
+        add_log("Updated mod order.")
 
     def get_mod_name_from_item(self, item):
         return self.treeview.item(item, "text")
@@ -209,4 +223,5 @@ class TreeviewManager:
                     other_parents = [self.treeview.item(p, "text") for j, (p, c) in enumerate(items) if i != j]
                     for other_parent in other_parents:
                         self.treeview.insert(parent=child, index=ttk.END, text="", values=self.set_treeview_values(conflicts=other_parent), tags=("conflict",), open=True)
+        add_log("Conflicts found and updated in treeview.")
 
