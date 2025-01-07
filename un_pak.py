@@ -1,5 +1,6 @@
 import os
 import subprocess
+import shutil
 from settings_config import settings_config
 
 aes_key = '0x33A604DF49A07FFD4A4C919962161F5C35A134D37EFA98DB37A34F6450D7D386'
@@ -15,9 +16,10 @@ def unpack_single_mod(filename):
         pak_path = os.path.join(mods_dir, filename)
         unpack_dir = os.path.join("unpacked", os.path.splitext(filename)[0])
 
-        # Ensure the specific unpack directory exists
-        if not os.path.exists(unpack_dir):
-            os.makedirs(unpack_dir)
+        # Ensure the specific unpack directory exists and clear it if not empty
+        if os.path.exists(unpack_dir):
+            shutil.rmtree(unpack_dir)
+        os.makedirs(unpack_dir)
         
         # Unpack the .pak file using the repak CLI tool
         command = [
