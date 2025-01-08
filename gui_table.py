@@ -252,8 +252,10 @@ class TreeviewManager:
             if len(items) > 1:
                 for i, (parent, child) in enumerate(items):
                     self.treeview.item(parent, tags="conflict")
+                    self.treeview.set(parent, "conflicts", "yes")
                     self.treeview.item(child, tags="conflict")
                     other_parents = [self.treeview.item(p, "text") for j, (p, c) in enumerate(items) if i != j]
+                    self.treeview.set(child, "conflicts", f"{len(other_parents)} other mods")
                     for other_parent in other_parents:
                         self.treeview.insert(parent=child, index=ttk.END, text="", values=self.set_treeview_values(conflicts=other_parent), tags=("conflict",), open=True)
         add_log("Conflicts found and updated in treeview.")
