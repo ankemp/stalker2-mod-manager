@@ -59,6 +59,19 @@ def get_cfg_files(mod_name):
                 cfg_files.append(os.path.join(root, file))
     return cfg_files
 
+def is_mod_analyzed(mod_name):
+    """
+    Checks if a mod is analyzed by verifying if there is a .json file for each .cfg file in the mod's directory.
+    """
+    mod_dir = get_mod_directory(mod_name)
+    for root, _, files in os.walk(mod_dir):
+        for file in files:
+            if file.endswith(".cfg"):
+                json_file = os.path.splitext(file)[0] + ".json"
+                if not os.path.exists(os.path.join(root, json_file)):
+                    return False
+    return True
+
 def detect_os():
     """
     Detects the operating system and returns 'windows', 'linux', or 'unsupported'.

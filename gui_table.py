@@ -1,5 +1,5 @@
 import ttkbootstrap as ttk
-from gui_helpers import get_mod_directory, get_pak_files, is_mod_unpacked, get_cfg_files
+from gui_helpers import get_mod_directory, get_pak_files, is_mod_unpacked, get_cfg_files, is_mod_analyzed
 from mod_config import mod_config
 from parse import parse_cfg
 from settings_config import settings_config
@@ -20,7 +20,7 @@ class TreeviewManager:
         treeview = ttk.Treeview(
             self.parent,
             bootstyle='secondary',
-            columns=("size", "enabled", "unpacked", "conflicts"),
+            columns=("size", "enabled", "unpacked", "conflicts", "analyzed"),
             selectmode='extended',
             show="tree headings",
             height=15,
@@ -29,11 +29,13 @@ class TreeviewManager:
         treeview.heading("enabled", text="Enabled")
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("conflicts", text="Conflicts")
+        treeview.heading("analyzed", text="Analyzed")
         treeview.column("#0", width=500, anchor="w")
         treeview.column("size", width=35, anchor="center")
         treeview.column("enabled", width=65, anchor="center")
         treeview.column("unpacked", width=65, anchor="center")
         treeview.column("conflicts", width=150, anchor="center")
+        treeview.column("analyzed", width=65, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
         treeview.tag_configure("enabled", foreground="green")
         treeview.tag_configure("disabled", foreground="red")
@@ -43,14 +45,15 @@ class TreeviewManager:
         
         return treeview
 
-    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", conflicts=""):
+    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", conflicts="", analyzed=""):
         if itemId:
             current_values = self.treeview.item(itemId, "values")
             size = size or current_values[0]
             enabled = enabled or current_values[1]
             unpacked = unpacked or current_values[2]
             conflicts = conflicts or current_values[3]
-        return (size, enabled, unpacked, conflicts)
+            analyzed = analyzed or current_values[4]
+        return (size, enabled, unpacked, conflicts, analyzed)
 
     def populate_treeview(self):
         mod_config.load_mods_config()
@@ -72,8 +75,9 @@ class TreeviewManager:
             is_enabled = mod_config.is_mod_enabled(pak_file["name"])
             enabled_str = "yes" if is_enabled else "no"
             unpacked = "yes" if is_mod_unpacked(pak_file["name"]) else "no"
+            analyzed = "yes" if is_mod_analyzed(pak_file["name"]) else "no"
 
-            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=self.set_treeview_values(size=size_str, enabled=enabled_str, unpacked=unpacked), tags=("enabled" if is_enabled else "disabled"))
+            item_id = self.treeview.insert(parent="", index="end", text=pak_file["name"], values=self.set_treeview_values(size=size_str, enabled=enabled_str, unpacked=unpacked, analyzed=analyzed), tags=("enabled" if is_enabled else "disabled"))
             self.list_files_for_mod(item_id)
         
         add_log("Treeview populated with mod files.")
@@ -151,7 +155,7 @@ class TreeviewManager:
         for file_path in cfg_files:
             parse_cfg(file_path)
         process_mod_directory(get_mod_directory(mod_name), settings_config.get_setting("game_source_cfg_directory"))
-        self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, unpacked="yes"))
+        self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, analyzed="yes"))
         add_log(f"Analyzed pak for mod: {mod_name}")
 
     def enable_mod(self, itemId):
