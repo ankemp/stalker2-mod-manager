@@ -1,10 +1,7 @@
-import json
 import sys
 import os
 
-def load_json(file_path):
-    with open(file_path, 'r') as file:
-        return json.load(file)
+from fs_helper import load_json
 
 def create_override_string(key, data, refurl):
     override_str = f"{key} : struct.begin {{refurl={refurl};refkey={key}}}\n"

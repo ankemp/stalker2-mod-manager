@@ -1,9 +1,7 @@
 import json
 import sys
 
-def load_json(file_path):
-    with open(file_path, 'r') as file:
-        return json.load(file)
+from fs_helper import load_json
 
 def compare_json(json1, json2):
     if json1 == json2:

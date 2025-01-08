@@ -3,10 +3,7 @@ import re
 import sys
 import os
 
-def parse_cfg(file_path):
-    with open(file_path, 'r', encoding='utf-8-sig') as file:
-        content = file.read()
-
+def parse_cfg_contents(content):
     # Remove comments
     content = re.sub(r'//.*', '', content)
 
@@ -37,6 +34,14 @@ def parse_cfg(file_path):
             else:
                 current_key = line
                 stack[-1][current_key] = {}
+    
+    return data
+
+def parse_cfg(file_path, encoding='utf-8-sig'):
+    with open(file_path, 'r', encoding=encoding) as file:
+        content = file.read()
+
+    data = parse_cfg_contents(content)
 
     # Save the parsed data as a .json file
     output_file = os.path.splitext(file_path)[0] + '.json'

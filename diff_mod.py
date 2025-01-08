@@ -1,10 +1,9 @@
 import os
-import shutil
 import sys
-from parse import parse_cfg
-import json
-from compare import compare_json, load_json
+from parse import parse_cfg_contents
+from compare import compare_json
 from create_overrides import generate_overrides
+import chardet
 
 def find_matching_files(mod_dir, source_dir):
     # Get all .cfg files in the mod directory
@@ -24,26 +23,6 @@ def find_matching_files(mod_dir, source_dir):
     
     return matching_files
 
-def parse_and_store(file_path, output_path):
-    data = parse_cfg(file_path)
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
-    with open(output_path, 'w') as json_file:
-        json.dump(data, json_file, indent=4)
-
-def compare_and_store(file1, file2, output_path):
-    json1 = load_json(file1)
-    json2 = load_json(file2)
-    differences = compare_json(json1, json2)
-    if differences:
-        with open(output_path, 'w') as diff_file:
-            json.dump(differences, diff_file, indent=4)
-
-def clear_tmp_directory(tmp_directory):
-    # Clear tmp directory
-    if os.path.exists(tmp_directory):
-        shutil.rmtree(tmp_directory)
-    os.makedirs(tmp_directory, exist_ok=True)
-
 def rename_file(file_path):
     directory, filename = os.path.split(file_path)
     new_filename = filename.lstrip('z').replace('_P', '', 1).replace('_', '', 1)
@@ -51,37 +30,39 @@ def rename_file(file_path):
     os.rename(file_path, new_file_path)
     return new_file_path
 
-def process_mod_directory(mod_directory, source_directory, tmp_directory = 'tmp'):
+def read_file_with_encoding(file_path):
+    with open(file_path, 'rb') as file:
+        raw_data = file.read()
+        result = chardet.detect(raw_data)
+        encoding = result['encoding']
+    with open(file_path, 'r', encoding=encoding) as file:
+        return file.read()
 
-    clear_tmp_directory(tmp_directory)
+def write_file_with_encoding(file_path, data):
+    with open(file_path, 'wb') as file:
+        raw_data = data.encode('utf-8')
+        file.write(raw_data)
 
+def parse_encoded_cfg(file_path):
+    content = read_file_with_encoding(file_path)
+    parsed_data = parse_cfg_contents(content)
+    return parsed_data
+
+def process_mod_directory(mod_directory, source_directory):
     matches = find_matching_files(mod_directory, source_directory)
     for mod_file, source_file in matches:
-        mod_output = os.path.join(tmp_directory, os.path.relpath(os.path.splitext(mod_file)[0] + '_mod.json', mod_directory))
-        source_output = os.path.join(tmp_directory, os.path.relpath(os.path.splitext(source_file)[0] + '_source.json', source_directory))
-        diff_output = os.path.join(tmp_directory, os.path.relpath(os.path.splitext(mod_file)[0] + '_diff.json', mod_directory))
-        
-        parse_and_store(mod_file, mod_output)
-        parse_and_store(source_file, source_output)
+        mod_data = parse_encoded_cfg(mod_file)
+        source_data = parse_encoded_cfg(source_file)
 
-        compare_and_store(source_output, mod_output, diff_output)
-
-        # Generate overrides from the diff file
-        diff_data = load_json(diff_output)
-        overrides = generate_overrides(diff_data, os.path.basename(diff_output).replace('_diff.json', '.cfg'))
-        overrides_output_path = diff_output.replace('.json', '_overrides.cfg')
-        with open(overrides_output_path, 'w') as overrides_file:
-            overrides_file.write(overrides)
-        
-        print(f"Overrides created successfully at {overrides_output_path}.")
-
-        # Copy override file back into the original mod file location
-        shutil.copy(overrides_output_path, mod_file)
-        print(f"Copied override file to {mod_file}.")
-        
-        # Rename the new override file
-        renamed_file_path = rename_file(mod_file)
-        print(f"Renamed override file to {renamed_file_path}.")
+        differences = compare_json(source_data, mod_data)
+        if differences:
+            overrides = generate_overrides(differences, os.path.basename(mod_file))
+            write_file_with_encoding(mod_file, overrides)
+            print(f"Overrides created and written to {mod_file}.")
+            
+            # Rename the new override file
+            renamed_file_path = rename_file(mod_file)
+            print(f"Renamed override file to {renamed_file_path}.")
 
 def main():
     if len(sys.argv) < 3:
