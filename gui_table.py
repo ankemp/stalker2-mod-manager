@@ -20,7 +20,7 @@ class TreeviewManager:
         treeview = ttk.Treeview(
             self.parent,
             bootstyle='secondary',
-            columns=("size", "enabled", "unpacked", "conflicts", "analyzed"),
+            columns=("size", "enabled", "unpacked", "analyzed", "conflicts"),
             selectmode='extended',
             show="tree headings",
             height=15,
@@ -28,14 +28,14 @@ class TreeviewManager:
         treeview.heading("size", text="Size")
         treeview.heading("enabled", text="Enabled")
         treeview.heading("unpacked", text="Unpacked")
-        treeview.heading("conflicts", text="Conflicts")
         treeview.heading("analyzed", text="Analyzed")
+        treeview.heading("conflicts", text="Conflicts")
         treeview.column("#0", width=500, anchor="w")
         treeview.column("size", width=35, anchor="center")
         treeview.column("enabled", width=65, anchor="center")
         treeview.column("unpacked", width=65, anchor="center")
-        treeview.column("conflicts", width=150, anchor="center")
         treeview.column("analyzed", width=65, anchor="center")
+        treeview.column("conflicts", width=150, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
         treeview.tag_configure("enabled", foreground="green")
         treeview.tag_configure("disabled", foreground="red")
@@ -45,15 +45,15 @@ class TreeviewManager:
         
         return treeview
 
-    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", conflicts="", analyzed=""):
+    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", analyzed="", conflicts=""):
         if itemId:
             current_values = self.treeview.item(itemId, "values")
             size = size or current_values[0]
             enabled = enabled or current_values[1]
             unpacked = unpacked or current_values[2]
-            conflicts = conflicts or current_values[3]
-            analyzed = analyzed or current_values[4]
-        return (size, enabled, unpacked, conflicts, analyzed)
+            analyzed = analyzed or current_values[3]
+            conflicts = conflicts or current_values[4]
+        return (size, enabled, unpacked, analyzed, conflicts)
 
     def populate_treeview(self):
         mod_config.load_mods_config()
