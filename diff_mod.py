@@ -3,7 +3,7 @@ import sys
 from parse import parse_cfg_contents
 from compare import compare_json
 from create_overrides import generate_overrides
-from fs_helper import read_file_with_encoding, write_file_with_encoding
+from fs_helper import read_file_with_encoding, save_json, write_file_with_encoding
 
 def find_matching_files(mod_dir, source_dir):
     # Get all .cfg files in the mod directory
@@ -23,13 +23,6 @@ def find_matching_files(mod_dir, source_dir):
     
     return matching_files
 
-def rename_file(file_path):
-    directory, filename = os.path.split(file_path)
-    new_filename = filename.lstrip('z').replace('_P', '', 1).replace('_', '', 1)
-    new_file_path = os.path.join(directory, new_filename)
-    os.rename(file_path, new_file_path)
-    return new_file_path
-
 def parse_encoded_cfg(file_path):
     content = read_file_with_encoding(file_path)
     parsed_data = parse_cfg_contents(content)
@@ -45,11 +38,8 @@ def process_mod_directory(mod_directory, source_directory):
         if differences:
             overrides = generate_overrides(differences, os.path.basename(mod_file))
             write_file_with_encoding(mod_file, overrides)
+            save_json(os.path.splitext(mod_file)[0] + '_diff.json', differences)
             print(f"Overrides created and written to {mod_file}.")
-            
-            # Rename the new override file
-            renamed_file_path = rename_file(mod_file)
-            print(f"Renamed override file to {renamed_file_path}.")
 
 def main():
     if len(sys.argv) < 3:
