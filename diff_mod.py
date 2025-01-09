@@ -63,10 +63,13 @@ def process_mod_directory(mod_directory, source_directory):
 
         differences = compare_json(source_data, mod_data)
         if differences:
+            backup_file = f"{mod_file}.bak"
+            write_file_with_encoding(backup_file, read_file_with_encoding(mod_file))
+            
             overrides = generate_overrides(differences, os.path.basename(mod_file))
             write_file_with_encoding(mod_file, overrides)
             save_json(os.path.splitext(mod_file)[0] + '_diff.json', differences)
-            print(f"Overrides created and written to {mod_file}.")
+            print(f"Overrides created and written to {mod_file}. Backup saved as {backup_file}.")
 
 def main():
     if len(sys.argv) < 3:
