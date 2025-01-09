@@ -23,7 +23,7 @@ class TreeviewManager:
             columns=("size", "enabled", "unpacked", "analyzed", "conflicts"),
             selectmode='extended',
             show="tree headings",
-            height=15,
+            height=25,
         )
         treeview.heading("size", text="Size")
         treeview.heading("enabled", text="Enabled")

@@ -10,7 +10,7 @@ class LogUI:
         self.log_frame = ttk.Frame(self.root, padding="10")
         self.log_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        self.log_text = ScrolledText(self.log_frame, wrap=tk.WORD, height=10)
+        self.log_text = ScrolledText(self.log_frame, wrap=tk.WORD, height=1)
         self.log_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         self.log_file_path = settings_config.get_setting("log_file_path")
