@@ -9,7 +9,7 @@ def create_override_string(key, data, refurl):
         result = ""
         for sub_key, sub_value in d.items():
             if isinstance(sub_value, dict):
-                result += "   " * indent + f"{sub_key} = struct.begin\n"
+                result += "   " * indent + f"{sub_key} : struct.begin\n"
                 result += parse_dict(sub_value, indent + 1)
                 result += "   " * indent + "struct.end\n"
             else:

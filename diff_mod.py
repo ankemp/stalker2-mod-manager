@@ -3,7 +3,7 @@ import sys
 from parse import parse_cfg_contents
 from compare import compare_json
 from create_overrides import generate_overrides
-from fs_helper import read_file_with_encoding, save_json, write_file_with_encoding
+from fs_helper import load_json, read_file_with_encoding, save_json, write_file_with_encoding
 
 def find_matching_files(mod_dir, source_dir):
     # Get all .cfg files in the mod directory
@@ -27,6 +27,33 @@ def parse_encoded_cfg(file_path):
     content = read_file_with_encoding(file_path)
     parsed_data = parse_cfg_contents(content)
     return parsed_data
+
+def check_nested_key_clashes(json_files):
+    def index_keys(data, path=""):
+        keys = {}
+        if isinstance(data, dict):
+            for key, value in data.items():
+                full_path = f"{path}.{key}" if path else key
+                keys[full_path] = value
+                keys.update(index_keys(value, full_path))
+        elif isinstance(data, list):
+            for index, item in enumerate(data):
+                full_path = f"{path}[{index}]"
+                keys.update(index_keys(item, full_path))
+        return keys
+
+    all_keys = {}
+    for file in json_files:
+        data = load_json(file)
+        keys = index_keys(data)
+        for key, value in keys.items():
+            if key in all_keys:
+                all_keys[key].append(file)
+            else:
+                all_keys[key] = [file]
+
+    conflicts = {key: files for key, files in all_keys.items() if len(files) > 1}
+    return conflicts
 
 def process_mod_directory(mod_directory, source_directory):
     matches = find_matching_files(mod_directory, source_directory)
