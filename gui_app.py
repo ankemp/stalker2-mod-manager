@@ -1,12 +1,8 @@
 import ttkbootstrap as ttk
 from tkinter import messagebox
 from gui_table import TreeviewManager
-from mod_config import mod_config
 from settings_config import settings_config
-from un_pak import list_files_in_pak, unpack_mods
-from gui_helpers import get_cfg_files, get_mod_directory, detect_os, is_repak_installed, install_repak
-from parse import parse_cfg
-from diff_mod import process_mod_directory
+from gui_helpers import detect_os, is_repak_installed, install_repak
 from gui_settings import SettingsUI
 from gui_style import StyleManager
 from gui_logs import initialize_log_ui, add_log
@@ -19,7 +15,7 @@ class ModManagerApp:
         self.game_pak_directory = ""
         self.game_source_cfg_directory = ""
         self.root.title("Stalker 2 Mod Manager")
-        self.root.geometry("1024x768")  # Set default window size to larger dimensions
+        self.root.geometry("1280x768")
         
         self.check_os_support()
         self.load_settings()
