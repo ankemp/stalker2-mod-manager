@@ -267,6 +267,8 @@ class TreeviewManager:
                     for other_parent in other_parents:
                         self.treeview.insert(parent=child, index=ttk.END, text="", values=self.set_treeview_values(conflicts=other_parent), tags=("conflict",), open=True)
         add_log("Conflicts found and updated in treeview.")
+        self.conflict_map = self.create_conflict_map()
+        add_log("Conflict map created.")
 
     def unpack_and_analyze_conflicting_mods(self):
         for item_id in self.treeview.get_children():
@@ -277,3 +279,33 @@ class TreeviewManager:
                 self.treeview.item(item_id, values=self.set_treeview_values(itemId=item_id, unpacked="yes", analyzed="yes"))
                 add_log(f"Unpacked and analyzed conflicting mod: {mod_name}")
         add_log("Unpacked and analyzed all conflicting mods.")
+        # self.check_complex_conflicts()
+
+    def create_conflict_map(self):
+        conflict_map = {}
+        for parent in self.treeview.get_children():
+            if "conflict" in self.treeview.item(parent, "tags"):
+                children = self.treeview.get_children(parent)
+                for child in children:
+                    filename = self.treeview.item(child, "text")
+                    if filename in conflict_map:
+                        conflict_map[filename].append(parent)
+                    else:
+                        conflict_map[filename] = [parent]
+        return conflict_map
+
+    def check_complex_conflicts(self):
+        for filename, parents in self.conflict_map.items():
+            json_filename = filename.replace(".cfg", "_diff.json")
+            files = []
+            for parent in parents:
+                mod_name = self.treeview.item(parent, "text")
+                files.append(f"{get_mod_directory(mod_name)}/Stalker2/Content/GameLite{json_filename}")
+            result = check_nested_key_clashes(files)
+            if result:
+                for parent in parents:
+                    self.treeview.item(parent, tags="complex_conflict")
+                    self.treeview.set(parent, "complex_conflicts", "yes")
+                    for key, files in result.items():
+                        # need to update to insert into the child's complex_conflict column
+                        self.treeview.insert(parent=parent, index=ttk.END, text="", values=self.set_treeview_values(complex_conflicts=key), tags=("complex_conflict",), open=True)
