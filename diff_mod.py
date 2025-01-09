@@ -3,7 +3,7 @@ import sys
 from parse import parse_cfg_contents
 from compare import compare_json
 from create_overrides import generate_overrides
-import chardet
+from fs_helper import read_file_with_encoding, write_file_with_encoding
 
 def find_matching_files(mod_dir, source_dir):
     # Get all .cfg files in the mod directory
@@ -29,19 +29,6 @@ def rename_file(file_path):
     new_file_path = os.path.join(directory, new_filename)
     os.rename(file_path, new_file_path)
     return new_file_path
-
-def read_file_with_encoding(file_path):
-    with open(file_path, 'rb') as file:
-        raw_data = file.read()
-        result = chardet.detect(raw_data)
-        encoding = result['encoding']
-    with open(file_path, 'r', encoding=encoding) as file:
-        return file.read()
-
-def write_file_with_encoding(file_path, data):
-    with open(file_path, 'wb') as file:
-        raw_data = data.encode('utf-8')
-        file.write(raw_data)
 
 def parse_encoded_cfg(file_path):
     content = read_file_with_encoding(file_path)
