@@ -4,7 +4,7 @@ from mod_config import mod_config
 from parse import parse_cfg
 from settings_config import settings_config
 from un_pak import unpack_single_mod, list_files_in_pak, unpack_mods
-from diff_mod import process_mod_directory
+from diff_mod import check_nested_key_clashes, process_mod_directory
 from gui_logs import add_log
 import subprocess
 
@@ -20,7 +20,7 @@ class TreeviewManager:
         treeview = ttk.Treeview(
             self.parent,
             bootstyle='secondary',
-            columns=("size", "enabled", "unpacked", "analyzed", "conflicts"),
+            columns=("size", "enabled", "unpacked", "analyzed", "conflicts", "complex_conflicts"),
             selectmode='extended',
             show="tree headings",
             height=25,
@@ -30,22 +30,25 @@ class TreeviewManager:
         treeview.heading("unpacked", text="Unpacked")
         treeview.heading("analyzed", text="Analyzed")
         treeview.heading("conflicts", text="Conflicts")
+        treeview.heading("complex_conflicts", text="Complex Conflicts")
         treeview.column("#0", width=500, anchor="w")
         treeview.column("size", width=35, anchor="center")
         treeview.column("enabled", width=65, anchor="center")
         treeview.column("unpacked", width=65, anchor="center")
         treeview.column("analyzed", width=65, anchor="center")
         treeview.column("conflicts", width=150, anchor="center")
+        treeview.column("complex_conflicts", width=150, anchor="center")
         treeview.grid(row=1, column=0, columnspan=4, sticky=("w", "e", "n", "s"))
         treeview.tag_configure("enabled", foreground="green")
         treeview.tag_configure("disabled", foreground="red")
         treeview.tag_configure("conflict", foreground="orange")
+        treeview.tag_configure("complex_conflict", foreground="purple")
 
         treeview.bind("<Button-3>", lambda event: self.show_context_menu(event))
         
         return treeview
 
-    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", analyzed="", conflicts=""):
+    def set_treeview_values(self, itemId=None, size="", enabled="", unpacked="", analyzed="", conflicts="", complex_conflicts=""):
         if itemId:
             current_values = self.treeview.item(itemId, "values")
             size = size or current_values[0]
@@ -53,7 +56,8 @@ class TreeviewManager:
             unpacked = unpacked or current_values[2]
             analyzed = analyzed or current_values[3]
             conflicts = conflicts or current_values[4]
-        return (size, enabled, unpacked, analyzed, conflicts)
+            complex_conflicts = complex_conflicts or current_values[5]
+        return (size, enabled, unpacked, analyzed, conflicts, complex_conflicts)
 
     def populate_treeview(self):
         mod_config.load_mods_config()
@@ -259,7 +263,7 @@ class TreeviewManager:
                     self.treeview.set(parent, "conflicts", "yes")
                     self.treeview.item(child, tags="conflict")
                     other_parents = [self.treeview.item(p, "text") for j, (p, c) in enumerate(items) if i != j]
-                    self.treeview.set(child, "conflicts", f"{len(other_parents)} other mods")
+                    self.treeview.set(child, "conflicts", f"conflicts with {len(other_parents)} mods")
                     for other_parent in other_parents:
                         self.treeview.insert(parent=child, index=ttk.END, text="", values=self.set_treeview_values(conflicts=other_parent), tags=("conflict",), open=True)
         add_log("Conflicts found and updated in treeview.")
@@ -272,4 +276,4 @@ class TreeviewManager:
                 self.analyze_pak(item_id)
                 self.treeview.item(item_id, values=self.set_treeview_values(itemId=item_id, unpacked="yes", analyzed="yes"))
                 add_log(f"Unpacked and analyzed conflicting mod: {mod_name}")
-        add_log("Unpacked and analyzed all conflicting mods.")    
+        add_log("Unpacked and analyzed all conflicting mods.")
