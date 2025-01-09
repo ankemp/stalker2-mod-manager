@@ -106,6 +106,7 @@ class ModManagerApp:
         self.actions_menu.add_command(label="Disable All", command=self.disable_all_mods)
         self.actions_menu.add_command(label="Unpack All", command=self.unpack_all_mods)
         self.actions_menu.add_command(label="Analyze All", command=self.analyze_all_mods)
+        self.actions_menu.add_command(label="Unpack and Analyze Conflicting Mods", command=self.unpack_and_analyze_conflicting_mods)
         self.actions_menu_button["menu"] = self.actions_menu
         self.actions_menu_button.grid(row=0, column=0, padx=5)
         
@@ -126,6 +127,9 @@ class ModManagerApp:
 
     def analyze_all_mods(self):
         self.treeview_manager.analyze_all_mods()
+
+    def unpack_and_analyze_conflicting_mods(self):
+        self.treeview_manager.unpack_and_analyze_conflicting_mods()
 
     def refresh_pak_files(self):
         self.treeview_manager = TreeviewManager(self.frame, self.mods_directory)

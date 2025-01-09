@@ -264,3 +264,12 @@ class TreeviewManager:
                         self.treeview.insert(parent=child, index=ttk.END, text="", values=self.set_treeview_values(conflicts=other_parent), tags=("conflict",), open=True)
         add_log("Conflicts found and updated in treeview.")
 
+    def unpack_and_analyze_conflicting_mods(self):
+        for item_id in self.treeview.get_children():
+            if "conflict" in self.treeview.item(item_id, "tags"):
+                mod_name = self.get_mod_name_from_item(item_id)
+                self.unpack_pak(item_id)
+                self.analyze_pak(item_id)
+                self.treeview.item(item_id, values=self.set_treeview_values(itemId=item_id, unpacked="yes", analyzed="yes"))
+                add_log(f"Unpacked and analyzed conflicting mod: {mod_name}")
+        add_log("Unpacked and analyzed all conflicting mods.")    
