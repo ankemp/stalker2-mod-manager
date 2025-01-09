@@ -2,7 +2,7 @@ import json
 import os
 import chardet
 
-def load_json(file_path, default_data):
+def load_json(file_path, default_data = {}):
     if os.path.exists(file_path):
         with open(file_path, "r") as f:
             try:
