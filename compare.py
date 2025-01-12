@@ -4,6 +4,8 @@ import sys
 from fs_helper import load_json
 
 def compare_json(json1, json2):
+    special_keys = {'__key__', 'refurl', 'refkey'}
+    
     if json1 == json2:
         return None
     if isinstance(json1, dict) and isinstance(json2, dict):
@@ -15,9 +17,9 @@ def compare_json(json1, json2):
                     diff[key] = nested_diff
             else:
                 diff[key] = json1[key]
-        for key in json2.keys():
-            if key not in json1:
-                diff[key] = json2[key]
+        for key in special_keys:
+            if key in json1:
+                diff[key] = json1[key]
         return diff
     elif isinstance(json1, list) and isinstance(json2, list):
         diff = []
@@ -28,11 +30,9 @@ def compare_json(json1, json2):
                     diff.append(nested_diff)
             elif index < len(json1):
                 diff.append(json1[index])
-            else:
-                diff.append(json2[index])
         return diff
     else:
-        return json2
+        return json1
 
 def main(file1, file2):
     json1 = load_json(file1)

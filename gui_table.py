@@ -60,6 +60,7 @@ class TreeviewManager:
         return (size, enabled, unpacked, analyzed, conflicts, complex_conflicts)
 
     def populate_treeview(self):
+        self.treeview.delete(*self.treeview.get_children())
         mod_config.load_mods_config()
         pak_files = get_pak_files(self.mods_directory)
         
@@ -155,9 +156,6 @@ class TreeviewManager:
 
     def analyze_pak(self, itemId):
         mod_name = self.get_mod_name_from_item(itemId)
-        cfg_files = get_cfg_files(mod_name)
-        for file_path in cfg_files:
-            parse_cfg(file_path)
         process_mod_directory(get_mod_directory(mod_name), settings_config.get_setting("game_source_cfg_directory"))
         self.treeview.item(itemId, values=self.set_treeview_values(itemId=itemId, analyzed="yes"))
         add_log(f"Analyzed pak for mod: {mod_name}")

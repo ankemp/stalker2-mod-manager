@@ -1,6 +1,6 @@
 import os
 import sys
-from parse import parse_cfg_contents
+from parse_v2 import cfg_to_json, create_struct_def, json_to_cfg
 from compare import compare_json
 from create_overrides import generate_overrides
 from fs_helper import load_json, read_file_with_encoding, save_json, write_file_with_encoding
@@ -12,7 +12,7 @@ def find_matching_files(mod_dir, source_dir):
         for file in files:
             if file.endswith('.cfg'):
                 cfg_files.append(os.path.join(root, file))
-    
+
     # Find matching files in the source directory
     matching_files = []
     for cfg_file in cfg_files:
@@ -25,7 +25,7 @@ def find_matching_files(mod_dir, source_dir):
 
 def parse_encoded_cfg(file_path):
     content = read_file_with_encoding(file_path)
-    parsed_data = parse_cfg_contents(content)
+    parsed_data = cfg_to_json(content)
     return parsed_data
 
 def check_nested_key_clashes(json_files):
@@ -57,19 +57,22 @@ def check_nested_key_clashes(json_files):
 
 def process_mod_directory(mod_directory, source_directory):
     matches = find_matching_files(mod_directory, source_directory)
+    print(f"Found {len(matches)} matching files.")
     for mod_file, source_file in matches:
         mod_data = parse_encoded_cfg(mod_file)
         source_data = parse_encoded_cfg(source_file)
+        save_json(os.path.splitext(source_file)[0] + '.json', source_data)
 
-        differences = compare_json(source_data, mod_data)
+        differences = compare_json(mod_data, source_data)
+        print(f"Comparing {mod_file}...")
         if differences:
-            backup_file = f"{mod_file}.bak"
-            write_file_with_encoding(backup_file, read_file_with_encoding(mod_file))
-            
-            overrides = generate_overrides(differences, os.path.basename(mod_file))
-            write_file_with_encoding(mod_file, overrides)
+            print(f"Found differences.")
             save_json(os.path.splitext(mod_file)[0] + '_diff.json', differences)
-            print(f"Overrides created and written to {mod_file}. Backup saved as {backup_file}.")
+            write_file_with_encoding(f"{mod_file}.bak", read_file_with_encoding(mod_file))
+            overrides = json_to_cfg(data=differences)
+            print(f"Creating overrides for {os.path.basename(mod_file)}")
+            write_file_with_encoding(mod_file, overrides)
+            print(f"Overrides created and written to {mod_file}.")
 
 def main():
     if len(sys.argv) < 3:

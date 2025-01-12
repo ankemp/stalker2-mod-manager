@@ -2,28 +2,14 @@ import sys
 import os
 
 from fs_helper import load_json
-
-def create_override_string(key, data, refurl):
-    override_str = f"{key} : struct.begin {{refurl={refurl};refkey={key}}}\n"
-    def parse_dict(d, indent=1):
-        result = ""
-        for sub_key, sub_value in d.items():
-            if isinstance(sub_value, dict):
-                result += "   " * indent + f"{sub_key} : struct.begin\n"
-                result += parse_dict(sub_value, indent + 1)
-                result += "   " * indent + "struct.end\n"
-            else:
-                result += "   " * indent + f"{sub_key} = {sub_value}\n"
-        return result
-
-    override_str += parse_dict(data)
-    override_str += "struct.end\n"
-    return override_str
+from parse_v2 import create_struct_def
 
 def generate_overrides(diff_data, refurl):
     overrides = ""
     for key, data in diff_data.items():
-        overrides += create_override_string(key, data, refurl)
+        if refurl:
+            refkey = key
+        overrides += create_struct_def(key=key, refkey=refkey, refurl=refurl, data=data)
     return overrides
 
 def main(mod_name, json_file_path):

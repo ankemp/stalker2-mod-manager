@@ -3,45 +3,13 @@ import re
 import sys
 import os
 
-def parse_cfg_contents(content):
-    # Remove comments
-    content = re.sub(r'//.*', '', content)
-
-    # Parse the content
-    data = {}
-    stack = [data]
-    current_key = None
-
-    for line in content.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-
-        if 'struct.begin' in line:
-            key = line.split(':')[0].strip()
-            new_dict = {}
-            stack[-1][key] = new_dict
-            stack.append(new_dict)
-        elif line == 'struct.end':
-            stack.pop()
-        else:
-            if '=' in line:
-                key, value = map(str.strip, line.split('=', 1))
-                stack[-1][key] = value
-            elif ':' in line:
-                key, value = map(str.strip, line.split(':', 1))
-                stack[-1][key] = value
-            else:
-                current_key = line
-                stack[-1][current_key] = {}
-    
-    return data
+from parse_v2 import cfg_to_json
 
 def parse_cfg(file_path, encoding='utf-8-sig'):
     with open(file_path, 'r', encoding=encoding) as file:
         content = file.read()
 
-    data = parse_cfg_contents(content)
+    data = cfg_to_json(content)
 
     # Save the parsed data as a .json file
     output_file = os.path.splitext(file_path)[0] + '.json'

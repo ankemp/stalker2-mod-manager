@@ -48,8 +48,8 @@ def list_files_in_pak(filename):
         try:
             result = subprocess.run(command, check=True, capture_output=True, text=True)
             files = result.stdout.splitlines()
-            stripped_files = [file.replace("Stalker2/Content/GameLite", "") for file in files]
-            return stripped_files
+            files = [os.path.normpath(file) for file in files]
+            return files
         except subprocess.CalledProcessError as e:
             print(f"Error listing files in {filename}: {e.stderr}")
             return []

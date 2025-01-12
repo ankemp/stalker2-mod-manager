@@ -7,3 +7,4 @@ __pycache__
 mods.json
 settings.json
 *.log
+*.zip

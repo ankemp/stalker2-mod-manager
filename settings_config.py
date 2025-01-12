@@ -9,7 +9,8 @@ class SettingsConfigManager:
         "theme": "cosmo",
         "game_source_cfg_directory": "source",
         "log_file_path": "",
-        "log_to_file": False
+        "log_to_file": False,
+        "show_full_file_path": False
     }
 
     def __init__(self):

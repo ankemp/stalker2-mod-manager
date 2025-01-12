@@ -2,7 +2,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog
 import ttkbootstrap as ttk
-import mod_config
+from mod_config import mod_config
 from settings_config import settings_config
 from gui_helpers import detect_os
 

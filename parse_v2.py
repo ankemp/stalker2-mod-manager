@@ -17,9 +17,9 @@ def create_struct_def(key, refurl, refkey, data):
     override_str += "struct.end\n"
     return override_str
 
-def json_to_cfg(d, indent=1):
+def json_to_cfg(data, indent=1):
     result = ""
-    for sub_key, sub_value in d.items():
+    for sub_key, sub_value in data.items():
         if sub_key in ['refurl', 'refkey', '__key__']:
             continue
         if isinstance(sub_value, dict):
@@ -110,6 +110,7 @@ def parse_cfg_file(input_file, output_dir, depth=0):
     if not os.path.exists(output_subdir):
         os.makedirs(output_subdir)
 
+    print(f"Creating {len(parsed.items())} parsed CFG files in {output_subdir}...")
     for key, value in parsed.items():
         refurl = value.get('refurl', '')
         refkey = value.get('refkey', '')
@@ -122,6 +123,7 @@ def parse_cfg_file(input_file, output_dir, depth=0):
             output_file.write(create_struct_def(key=key, refkey=refkey, refurl=refurl, data=value))
 
 def parse_cfg_directory(input_dir, output_dir, max_depth):
+    print(f"Parsing CFG files in {input_dir}...")
     base_depth = input_dir.count(os.sep)
     for root, _, files in os.walk(input_dir):
         for file in files:
@@ -129,6 +131,7 @@ def parse_cfg_directory(input_dir, output_dir, max_depth):
                 relative_depth = os.path.relpath(file, root).count(os.sep)
                 depth = relative_depth - base_depth
                 if depth <= max_depth:
+                    print(f"Processing {file}...")
                     input_file_path = os.path.join(root, file)
                     relative_path = sanitize_filename(os.path.relpath(root, input_dir))
                     output_subdir = os.path.join(output_dir, relative_path)
@@ -142,9 +145,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.output_dir is None:
-        args.output_dir = os.path.dirname(os.path.abspath(args.input_path))
+        args.output_dir = args.input_path
 
     if os.path.isdir(args.input_path):
+        if not args.input_path.endswith(os.sep):
+            args.input_path += os.sep
         parse_cfg_directory(args.input_path, args.output_dir, args.max_depth)
     else:
         parse_cfg_file(args.input_path, args.output_dir)
