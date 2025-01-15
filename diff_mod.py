@@ -67,6 +67,12 @@ def process_mod_directory(mod_directory, source_directory):
         print(f"Comparing {mod_file}...")
         if differences:
             print(f"Found differences.")
+            # Add refurl to each root level object in differences
+            refurl = f"./{os.path.basename(mod_file)}"
+            for key in differences:
+                if isinstance(differences[key], dict):
+                    differences[key]['refurl'] = refurl
+
             save_json(os.path.splitext(mod_file)[0] + '_diff.json', differences)
             write_file_with_encoding(f"{mod_file}.bak", read_file_with_encoding(mod_file))
             overrides = json_to_cfg(data=differences)

@@ -4,7 +4,7 @@ import sys
 from fs_helper import load_json
 
 def compare_json(json1, json2):
-    special_keys = {'__key__', 'refurl', 'refkey'}
+    special_keys = {'__key__', 'refurl', 'refkey', 'SID'}
     
     if json1 == json2:
         return None

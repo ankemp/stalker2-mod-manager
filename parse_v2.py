@@ -3,7 +3,7 @@ import re
 import argparse
 import chardet
 
-def create_struct_def(key, refurl, refkey, data):
+def create_struct_def(key, refurl, refkey, data, indent=0):
     refurl_str = ""
     if refurl and refkey:
         refurl_str = f"{{refurl={refurl};refkey={refkey}}}"
@@ -12,25 +12,31 @@ def create_struct_def(key, refurl, refkey, data):
     elif refkey:
         refurl_str = f"{{refkey={refkey}}}"
     
-    override_str = f"{key} : struct.begin {refurl_str}\n"
-    override_str += json_to_cfg(data)
-    override_str += "struct.end\n"
+    indent_str = "   " * indent
+    override_str = f"{indent_str}{key} : struct.begin {refurl_str}\n"
+    override_str += json_to_cfg(data, indent + 1)
+    override_str += f"{indent_str}struct.end\n"
     return override_str
 
 def json_to_cfg(data, indent=0):
     result = ""
-    for sub_key, sub_value in data.items():
+    keys = list(data.keys())
+    if 'SID' in keys:
+        keys.remove('SID')
+        keys.insert(0, 'SID')
+    for sub_key in keys:
+        sub_value = data[sub_key]
         if sub_key in ['refurl', 'refkey', '__key__']:
             continue
         if isinstance(sub_value, dict):
-            result += "   " * indent + f"{sub_key} : struct.begin\n"
-            result += json_to_cfg(sub_value, indent + 1)
-            result += "   " * indent + "struct.end\n"
+            refurl = sub_value.get('refurl', '')
+            refkey = sub_value.get('refkey', '')
+            result += create_struct_def(sub_key, refurl, refkey, sub_value, indent)
         elif isinstance(sub_value, list):
             for item in sub_value:
-                result += "   " * indent + f"{item['__key__']} : struct.begin\n"
-                result += json_to_cfg(item, indent + 1)
-                result += "   " * indent + "struct.end\n"
+                refurl = item.get('refurl', '')
+                refkey = item.get('refkey', '')
+                result += create_struct_def(item['__key__'], refurl, refkey, item, indent)
         else:
             result += "   " * indent + f"{sub_key} = {sub_value}\n"
     return result
