@@ -79,9 +79,8 @@ def process_mod_directory(mod_directory, source_directory):
             print(f"Creating overrides for {os.path.basename(mod_file)}")
             mod_dir_name = os.path.basename(os.path.normpath(mod_directory))
             mod_dir_name = mod_dir_name.lstrip('z').split('_', 1)[-1].replace('_P', '')
-            new_filename = f"{mod_dir_name}_{os.path.basename(mod_file)}"
+            new_filename = f"zzz_{mod_dir_name}_{os.path.basename(mod_file)}"
             write_file_with_encoding(os.path.join(os.path.dirname(mod_file), new_filename), overrides)
-            write_file_with_encoding(mod_file, overrides)
             print(f"Overrides created and written to {mod_file}.")
 
 def main():
