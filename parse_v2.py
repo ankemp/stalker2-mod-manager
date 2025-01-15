@@ -52,10 +52,14 @@ def cfg_to_json(content):
         if 'struct.begin' in line:
             key = line.split(':')[0].strip()
             new_dict = {'__key__': key}
-            refurl_match = re.search(r'\{refurl=(.*?);refkey=(.*?)\}', line)
-            if refurl_match:
-                new_dict['refurl'] = refurl_match.group(1)
-                new_dict['refkey'] = refurl_match.group(2)
+            ref_match = re.search(r'\{(refurl=.*?;)?(refkey=.*?)\}', line)
+            if ref_match:
+                refurl = ref_match.group(1)
+                refkey = ref_match.group(2)
+                if refurl:
+                    new_dict['refurl'] = refurl.split('=')[1].rstrip(';')
+                if refkey:
+                    new_dict['refkey'] = refkey.split('=')[1]
             if key in stack[-1]:
                 if not isinstance(stack[-1][key], list):
                     stack[-1][key] = [stack[-1][key]]
