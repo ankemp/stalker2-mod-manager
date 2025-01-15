@@ -68,15 +68,19 @@ def process_mod_directory(mod_directory, source_directory):
         if differences:
             print(f"Found differences.")
             # Add refurl to each root level object in differences
-            refurl = f"./{os.path.basename(mod_file)}"
             for key in differences:
                 if isinstance(differences[key], dict):
-                    differences[key]['refurl'] = refurl
+                    differences[key]['refurl'] = os.path.basename(mod_file)
+                    differences[key]['refkey'] = key
 
             save_json(os.path.splitext(mod_file)[0] + '_diff.json', differences)
             write_file_with_encoding(f"{mod_file}.bak", read_file_with_encoding(mod_file))
             overrides = json_to_cfg(data=differences)
             print(f"Creating overrides for {os.path.basename(mod_file)}")
+            mod_dir_name = os.path.basename(os.path.normpath(mod_directory))
+            mod_dir_name = mod_dir_name.lstrip('z').split('_', 1)[-1].replace('_P', '')
+            new_filename = f"{mod_dir_name}_{os.path.basename(mod_file)}"
+            write_file_with_encoding(os.path.join(os.path.dirname(mod_file), new_filename), overrides)
             write_file_with_encoding(mod_file, overrides)
             print(f"Overrides created and written to {mod_file}.")
 
