@@ -17,7 +17,7 @@ def create_struct_def(key, refurl, refkey, data):
     override_str += "struct.end\n"
     return override_str
 
-def json_to_cfg(data, indent=1):
+def json_to_cfg(data, indent=0):
     result = ""
     for sub_key, sub_value in data.items():
         if sub_key in ['refurl', 'refkey', '__key__']:
