@@ -372,6 +372,7 @@ python scripts/validate_api_compliance.py
 - ✅ API compliance validation tools
 - ✅ Database management utilities
 
+
 ### 🚧 **In Progress / Remaining Features**
 
 **Core Functionality Integration:**
@@ -387,7 +388,6 @@ python scripts/validate_api_compliance.py
 - Implement actual API key validation against Nexus Mods API
 - Add automatic game path detection and validation
 - Save and load all user preferences and configuration settings
-- Implement mod directory browsing and management
 
 **File Management Operations:**
 - Connect deployed files tracking to UI display
@@ -404,9 +404,7 @@ python scripts/validate_api_compliance.py
 - Add crash recovery and error reporting
 
 **User Experience Enhancements:**
-- Add URL opening functionality for mod pages and external links
 - Implement mod status color coding (green=enabled, red=disabled)
-- Add game directory and mods directory quick access
 - Implement comprehensive error messaging and user feedback
 - Add tooltips and help system throughout application
 

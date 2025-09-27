@@ -8,6 +8,7 @@ import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
 from gui.dialogs import AddModDialog, SettingsDialog, DeploymentSelectionDialog
 from gui.components import ModListFrame, ModDetailsFrame, StatusBar
+import os
 
 
 class MainWindow:
@@ -1291,14 +1292,27 @@ class MainWindow:
     
     def open_game_directory(self):
         """Open the game directory in file explorer"""
-        # TODO: Get game path from settings
-        # TODO: Open in file explorer
-        self.status_bar.set_status("Opening game directory...")
+        game_path = self.config_manager.get_game_path() if hasattr(self, 'config_manager') else None
+        if not game_path or not os.path.exists(game_path):
+            self.status_bar.set_status("Game path not set or does not exist. Please configure it in Settings.")
+            return
+        try:
+            os.startfile(game_path)
+            self.status_bar.set_status("Opened game directory.")
+        except Exception as e:
+            self.status_bar.set_status(f"Failed to open game directory: {e}")
     
     def open_mods_directory(self):
         """Open the mods storage directory in file explorer"""
-        # TODO: Open mods directory in file explorer
-        self.status_bar.set_status("Opening mods directory...")
+        mods_dir = self.config_manager.get_mods_directory() if hasattr(self, 'config_manager') else None
+        if not mods_dir or not os.path.exists(mods_dir):
+            self.status_bar.set_status("Mods directory not set or does not exist. Please configure it in Settings.")
+            return
+        try:
+            os.startfile(mods_dir)
+            self.status_bar.set_status("Opened mods directory.")
+        except Exception as e:
+            self.status_bar.set_status(f"Failed to open mods directory: {e}")
     
     def show_about(self):
         """Show about dialog"""

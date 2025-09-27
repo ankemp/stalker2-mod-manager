@@ -641,9 +641,10 @@ class ModDetailsFrame:
     
     def open_nexus_link(self, event):
         """Open Nexus Mods link in browser"""
+        import webbrowser
         if self.current_mod and self.current_mod.get("nexus_id"):
-            # TODO: Open URL in default browser
-            pass
+            nexus_url = f"https://www.nexusmods.com/stalker2heartofchornobyl/mods/{self.current_mod['nexus_id']}"
+            webbrowser.open(nexus_url)
 
 
 class StatusBar:
