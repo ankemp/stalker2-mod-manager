@@ -224,6 +224,20 @@ class NexusModsClient:
             logger.error(f"Failed to get mod files for ID {mod_id}: {e}")
             raise
     
+    def get_file_info(self, mod_id: int, file_id: int) -> Dict[str, Any]:
+        """Get information about a specific file for a mod"""
+        try:
+            endpoint = f"/games/{self.GAME_DOMAIN}/mods/{mod_id}/files/{file_id}.json"
+            response = self._make_request("GET", endpoint)
+            file_data = response.json()
+            
+            logger.info(f"Retrieved file info for mod {mod_id}, file {file_id}: {file_data.get('name', 'Unknown')}")
+            return file_data
+            
+        except NexusAPIError as e:
+            logger.error(f"Failed to get file info for mod {mod_id}, file {file_id}: {e}")
+            raise
+    
     def get_download_link(self, mod_id: int, file_id: int, key: Optional[str] = None, 
                          expires: Optional[int] = None) -> Dict[str, Any]:
         """Get download link for a specific mod file
@@ -397,6 +411,16 @@ class NexusModsClient:
             logger.error(f"Failed to get latest added mods: {e}")
             raise
     
+    def get_latest_updated_mods(self) -> List[Dict[str, Any]]:
+        """Get the 10 latest updated mods for Stalker 2"""
+        try:
+            endpoint = f"/games/{self.GAME_DOMAIN}/mods/latest_updated.json"
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except NexusAPIError as e:
+            logger.error(f"Failed to get latest updated mods: {e}")
+            raise
+    
     def get_trending_mods(self) -> List[Dict[str, Any]]:
         """Get the 10 trending mods for Stalker 2"""
         try:
@@ -489,6 +513,93 @@ class NexusModsClient:
             return response.json()
         except NexusAPIError as e:
             logger.error(f"Failed to get user endorsements: {e}")
+            raise
+    
+    def search_mods_by_md5(self, md5_hash: str) -> Dict[str, Any]:
+        """Search for a mod file by MD5 hash"""
+        try:
+            endpoint = f"/games/{self.GAME_DOMAIN}/mods/md5_search/{md5_hash}.json"
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except NexusAPIError as e:
+            logger.error(f"Failed to search mods by MD5 {md5_hash}: {e}")
+            raise
+    
+    def endorse_mod(self, mod_id: int, version: Optional[str] = None) -> bool:
+        """Endorse a mod"""
+        try:
+            endpoint = f"/games/{self.GAME_DOMAIN}/mods/{mod_id}/endorse.json"
+            data = {}
+            if version:
+                data["version"] = version
+            
+            response = self._make_request("POST", endpoint, data=data)
+            success = response.status_code in [200, 201]
+            
+            if success:
+                logger.info(f"Successfully endorsed mod {mod_id}")
+            return success
+            
+        except NexusAPIError as e:
+            logger.error(f"Failed to endorse mod {mod_id}: {e}")
+            raise
+    
+    def abstain_from_endorsing_mod(self, mod_id: int, version: Optional[str] = None) -> bool:
+        """Abstain from endorsing a mod"""
+        try:
+            endpoint = f"/games/{self.GAME_DOMAIN}/mods/{mod_id}/abstain.json"
+            data = {}
+            if version:
+                data["version"] = version
+            
+            response = self._make_request("POST", endpoint, data=data)
+            success = response.status_code in [200, 201]
+            
+            if success:
+                logger.info(f"Successfully abstained from endorsing mod {mod_id}")
+            return success
+            
+        except NexusAPIError as e:
+            logger.error(f"Failed to abstain from endorsing mod {mod_id}: {e}")
+            raise
+    
+    def get_all_games(self, include_unapproved: bool = False) -> List[Dict[str, Any]]:
+        """Get all games supported by Nexus Mods"""
+        try:
+            endpoint = "/games.json"
+            params = {}
+            if include_unapproved:
+                params["include_unapproved"] = True
+            
+            response = self._make_request("GET", endpoint, params=params)
+            return response.json()
+        except NexusAPIError as e:
+            logger.error(f"Failed to get all games: {e}")
+            raise
+    
+    def get_game_info(self, game_domain_name: Optional[str] = None) -> Dict[str, Any]:
+        """Get information about a specific game"""
+        try:
+            domain = game_domain_name or self.GAME_DOMAIN
+            endpoint = f"/games/{domain}.json"
+            response = self._make_request("GET", endpoint)
+            game_data = response.json()
+            
+            logger.info(f"Retrieved game info for {domain}: {game_data.get('name', 'Unknown')}")
+            return game_data
+            
+        except NexusAPIError as e:
+            logger.error(f"Failed to get game info for {game_domain_name or self.GAME_DOMAIN}: {e}")
+            raise
+    
+    def get_colour_schemes(self) -> List[Dict[str, Any]]:
+        """Get all colour schemes"""
+        try:
+            endpoint = "/colourschemes.json"
+            response = self._make_request("GET", endpoint)
+            return response.json()
+        except NexusAPIError as e:
+            logger.error(f"Failed to get colour schemes: {e}")
             raise
     
     def close(self):

@@ -214,6 +214,119 @@ class TestNexusModsClient(unittest.TestCase):
         self.assertEqual(result["version"], "1.0.0")
     
     @patch('requests.Session.request')
+    def test_get_file_info_success(self, mock_request):
+        """Test successful file info retrieval"""
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.headers = {}
+        mock_response.json.return_value = {
+            "file_id": 1001,
+            "name": "Main File",
+            "file_name": "mod_v1.0.zip",
+            "category_name": "MAIN",
+            "version": "1.0.0",
+            "size_kb": 1024,
+            "uploaded_time": 1234567890
+        }
+        mock_request.return_value = mock_response
+        
+        result = self.client.get_file_info(123, 1001)
+        
+        self.assertEqual(result["file_id"], 1001)
+        self.assertEqual(result["name"], "Main File")
+        self.assertEqual(result["file_name"], "mod_v1.0.zip")
+        self.assertEqual(result["size_kb"], 1024)
+    
+    @patch('requests.Session.request')
+    def test_get_latest_updated_mods(self, mock_request):
+        """Test latest updated mods retrieval"""
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.headers = {}
+        mock_response.json.return_value = [
+            {"mod_id": 1, "name": "Updated Mod 1"},
+            {"mod_id": 2, "name": "Updated Mod 2"}
+        ]
+        mock_request.return_value = mock_response
+        
+        result = self.client.get_latest_updated_mods()
+        
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["mod_id"], 1)
+    
+    @patch('requests.Session.request')
+    def test_search_mods_by_md5(self, mock_request):
+        """Test MD5 search functionality"""
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.headers = {}
+        mock_response.json.return_value = [
+            {"mod_id": 123, "file_id": 1001, "file_name": "test.zip"}
+        ]
+        mock_request.return_value = mock_response
+        
+        test_md5 = "d41d8cd98f00b204e9800998ecf8427e"
+        result = self.client.search_mods_by_md5(test_md5)
+        
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["mod_id"], 123)
+    
+    @patch('requests.Session.request')
+    def test_endorse_mod(self, mock_request):
+        """Test mod endorsement"""
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_request.return_value = mock_response
+        
+        result = self.client.endorse_mod(123, "1.0.0")
+        
+        self.assertTrue(result)
+        # Check that correct method and data were used
+        args, kwargs = mock_request.call_args
+        self.assertEqual(kwargs.get('method') or args[0], "POST")
+        self.assertIn("data", kwargs)
+        self.assertEqual(kwargs["data"]["version"], "1.0.0")
+    
+    @patch('requests.Session.request')
+    def test_get_all_games(self, mock_request):
+        """Test all games retrieval"""
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.headers = {}
+        mock_response.json.return_value = [
+            {"id": 1, "name": "Skyrim", "domain_name": "skyrim"},
+            {"id": 2, "name": "Stalker 2", "domain_name": "stalker2heartofchornobyl"}
+        ]
+        mock_request.return_value = mock_response
+        
+        result = self.client.get_all_games()
+        
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[1]["domain_name"], "stalker2heartofchornobyl")
+    
+    @patch('requests.Session.request')
+    def test_get_game_info(self, mock_request):
+        """Test game info retrieval"""
+        mock_response = Mock()
+        mock_response.ok = True
+        mock_response.headers = {}
+        mock_response.json.return_value = {
+            "id": 1,
+            "name": "S.T.A.L.K.E.R. 2: Heart of Chornobyl",
+            "domain_name": "stalker2heartofchornobyl",
+            "downloads": 50000,
+            "file_count": 1000
+        }
+        mock_request.return_value = mock_response
+        
+        result = self.client.get_game_info()
+        
+        self.assertEqual(result["domain_name"], "stalker2heartofchornobyl")
+        self.assertEqual(result["downloads"], 50000)
+    
+    @patch('requests.Session.request')
     def test_get_mod_files_success(self, mock_request):
         """Test successful mod files retrieval"""
         mock_response = Mock()
