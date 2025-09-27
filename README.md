@@ -364,6 +364,7 @@ python scripts/validate_api_compliance.py
 - ✅ **File manager integration with UI (deployment system)**
 - ✅ **Update checking and notifications in UI**
 - ✅ **Error handling and user feedback integration through threading**
+- ✅ **Game path auto-detection system with multiple platform support**
 
 **Development Tools:**
 - ✅ Comprehensive test suites for all components
@@ -379,13 +380,11 @@ python scripts/validate_api_compliance.py
 - Replace sample data loading with actual database integration in mod list
 - Implement actual archive content reading for file deployment dialog
 - Connect mod enable/disable toggle functionality to file manager
-- Add game path detection logic for automatic game installation discovery
 - Implement save deployment selections to database
 - Update mod status tracking after deployment operations
 - Add mod removal functionality (files, archive, database cleanup)
 
 **Settings & Configuration:**
-- Add automatic game path detection and validation
 - Save and load all user preferences and configuration settings
 
 **File Management Operations:**

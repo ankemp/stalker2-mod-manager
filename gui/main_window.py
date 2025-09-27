@@ -42,6 +42,9 @@ class MainWindow:
         self.setup_main_ui()
         self.setup_bindings()
         
+        # Auto-detect game path on first run if not set
+        self.auto_detect_game_path_if_needed()
+        
         # Initialize API components after UI is ready
         self.init_api_components()
     
@@ -173,6 +176,47 @@ class MainWindow:
             print(f"Error loading initial data: {e}")
             import traceback
             traceback.print_exc()
+    
+    def auto_detect_game_path_if_needed(self):
+        """Auto-detect game path on first run or if not currently set"""
+        try:
+            # Check if game path is already set and valid
+            current_path = self.config_manager.get_game_path()
+            if current_path and os.path.exists(current_path):
+                # Path is set and exists, no need to auto-detect
+                return
+            
+            # Try to auto-detect game path
+            from utils.game_detection import detect_game_path
+            detected_path = detect_game_path()
+            
+            if detected_path:
+                # Silently set the detected path
+                self.config_manager.set_game_path(detected_path)
+                print(f"Auto-detected game path: {detected_path}")
+                
+                # Optionally show a notification to the user
+                # We'll do this in a non-blocking way using after()
+                self.root.after(1000, lambda: self._show_game_path_detection_notification(detected_path))
+            else:
+                print("No game path auto-detected")
+                
+        except Exception as e:
+            print(f"Error during auto game path detection: {e}")
+            # Don't show error to user during startup - just log it
+    
+    def _show_game_path_detection_notification(self, detected_path):
+        """Show a non-intrusive notification about detected game path"""
+        try:
+            # Only show if the main window is visible and ready
+            if self.root.winfo_viewable():
+                # Show a brief status message instead of a dialog
+                if hasattr(self, 'status_bar'):
+                    self.status_bar.set_status(f"Auto-detected game path: {os.path.basename(detected_path)}")
+                    # Clear the message after 3 seconds
+                    self.root.after(3000, lambda: self.status_bar.set_status("Ready"))
+        except Exception as e:
+            print(f"Error showing detection notification: {e}")
     
     def setup_menu(self):
         """Create the application menu bar"""

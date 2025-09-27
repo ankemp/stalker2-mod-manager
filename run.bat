@@ -47,6 +47,12 @@ if "%1"=="validate" (
     goto :end
 )
 
+if "%1"=="detect-game" (
+    echo Running game detection utility...
+    python scripts\detect_game.py
+    goto :end
+)
+
 REM Default: Run the application
 echo Running application...
 python main.py
@@ -56,10 +62,11 @@ REM Deactivate when done
 deactivate
 echo.
 echo Additional commands:
-echo   run.bat db-info    - Show database information
-echo   run.bat db-reset   - Reset database
-echo   run.bat test       - Run test suite
-echo   run.bat demo       - Run API demo
-echo   run.bat validate   - Validate API compliance
+echo   run.bat db-info      - Show database information
+echo   run.bat db-reset     - Reset database
+echo   run.bat test         - Run test suite
+echo   run.bat demo         - Run API demo
+echo   run.bat validate     - Validate API compliance
+echo   run.bat detect-game  - Detect Stalker 2 installations
 echo.
 pause

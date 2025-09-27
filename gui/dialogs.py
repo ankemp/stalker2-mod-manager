@@ -784,7 +784,29 @@ Note: Rate limits are shared across all applications using your API key."""
         """Browse for game directory"""
         path = filedialog.askdirectory(title="Select Stalker 2 Installation Directory")
         if path:
-            self.game_path_var.set(path)
+            # Validate the selected path
+            try:
+                from utils.game_detection import is_valid_stalker2_installation
+                if is_valid_stalker2_installation(path):
+                    self.game_path_var.set(path)
+                    messagebox.showinfo(
+                        "Valid Game Path",
+                        f"Valid Stalker 2 installation detected at:\n{path}"
+                    )
+                else:
+                    response = messagebox.askyesno(
+                        "Invalid Game Path",
+                        f"The selected directory does not appear to contain a valid Stalker 2 installation.\n\n"
+                        f"Expected to find:\n"
+                        f"• Stalker2-Win64-Shipping.exe\n"
+                        f"• Stalker2 folder\n\n"
+                        f"Do you want to use this path anyway?"
+                    )
+                    if response:
+                        self.game_path_var.set(path)
+            except ImportError:
+                # Fall back to simple directory selection if validation is not available
+                self.game_path_var.set(path)
     
     def browse_mods_path(self):
         """Browse for mods storage directory"""
@@ -794,8 +816,151 @@ Note: Rate limits are shared across all applications using your API key."""
     
     def auto_detect_game_path(self):
         """Attempt to auto-detect game installation path"""
-        # TODO: Implement game path detection logic
-        messagebox.showinfo("Auto-detect", "Game path auto-detection not yet implemented")
+        try:
+            from utils.game_detection import GameDetector
+            
+            # Show progress message
+            self.dialog.update()
+            
+            detector = GameDetector()
+            installations = detector.detect_all_installations()
+            
+            if not installations:
+                messagebox.showinfo(
+                    "Auto-detect Game Path", 
+                    "No Stalker 2 installations were found.\n\n"
+                    "Please make sure the game is installed and try browsing for the installation directory manually."
+                )
+                return
+            
+            if len(installations) == 1:
+                # Single installation found - use it directly
+                installation = installations[0]
+                self.game_path_var.set(installation["path"])
+                messagebox.showinfo(
+                    "Game Path Detected", 
+                    f"Found Stalker 2 installation:\n\n"
+                    f"Path: {installation['path']}\n"
+                    f"Platform: {installation['platform']}\n"
+                    f"Detection method: {installation['method']}\n\n"
+                    f"Path has been set automatically."
+                )
+            else:
+                # Multiple installations found - let user choose
+                self._show_installation_selection_dialog(installations)
+                
+        except ImportError:
+            messagebox.showerror(
+                "Error", 
+                "Game detection module not available. Please browse for the game path manually."
+            )
+        except Exception as e:
+            logger.error(f"Error during game path auto-detection: {e}")
+            messagebox.showerror(
+                "Detection Error", 
+                f"An error occurred during game path detection:\n\n{str(e)}\n\n"
+                f"Please try browsing for the game path manually."
+            )
+    
+    def _show_installation_selection_dialog(self, installations):
+        """Show dialog to select from multiple detected installations"""
+        # Create a selection dialog
+        selection_dialog = tk.Toplevel(self.dialog)
+        selection_dialog.title("Select Game Installation")
+        selection_dialog.transient(self.dialog)
+        selection_dialog.grab_set()
+        selection_dialog.resizable(False, False)
+        
+        # Center the dialog
+        selection_dialog.update_idletasks()
+        x = (self.dialog.winfo_rootx() + self.dialog.winfo_width() // 2 - 
+             selection_dialog.winfo_width() // 2)
+        y = (self.dialog.winfo_rooty() + self.dialog.winfo_height() // 2 - 
+             selection_dialog.winfo_height() // 2)
+        selection_dialog.geometry(f"+{x}+{y}")
+        
+        selected_path = tk.StringVar()
+        
+        # Main frame
+        main_frame = ttk_bootstrap.Frame(selection_dialog)
+        main_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Title
+        ttk_bootstrap.Label(
+            main_frame, 
+            text="Multiple Stalker 2 installations detected:",
+            font=("TkDefaultFont", 10, "bold")
+        ).pack(anchor=W, pady=(0, 10))
+        
+        ttk_bootstrap.Label(
+            main_frame, 
+            text="Please select which installation to use:"
+        ).pack(anchor=W, pady=(0, 10))
+        
+        # Installation list
+        for i, installation in enumerate(installations):
+            frame = ttk_bootstrap.Frame(main_frame)
+            frame.pack(fill=X, pady=2)
+            
+            ttk_bootstrap.Radiobutton(
+                frame,
+                text="",
+                variable=selected_path,
+                value=installation["path"]
+            ).pack(side=LEFT)
+            
+            # Installation details
+            details_frame = ttk_bootstrap.Frame(frame)
+            details_frame.pack(side=LEFT, fill=X, expand=True, padx=(10, 0))
+            
+            # Path (main text)
+            ttk_bootstrap.Label(
+                details_frame,
+                text=installation["path"],
+                font=("TkDefaultFont", 9, "bold")
+            ).pack(anchor=W)
+            
+            # Platform and method (smaller text)
+            info_text = f"{installation['platform']} - {installation['method']} ({installation['confidence']} confidence)"
+            ttk_bootstrap.Label(
+                details_frame,
+                text=info_text,
+                font=("TkDefaultFont", 8),
+                foreground="gray"
+            ).pack(anchor=W)
+        
+        # Set default selection to the first (highest confidence) installation
+        selected_path.set(installations[0]["path"])
+        
+        # Buttons
+        button_frame = ttk_bootstrap.Frame(main_frame)
+        button_frame.pack(fill=X, pady=(20, 0))
+        
+        def on_cancel():
+            selection_dialog.destroy()
+        
+        def on_ok():
+            if selected_path.get():
+                self.game_path_var.set(selected_path.get())
+                messagebox.showinfo(
+                    "Game Path Set", 
+                    f"Game path set to:\n{selected_path.get()}"
+                )
+            selection_dialog.destroy()
+        
+        ttk_bootstrap.Button(
+            button_frame, 
+            text="Cancel", 
+            command=on_cancel,
+            bootstyle=SECONDARY
+        ).pack(side=RIGHT, padx=(5, 0))
+        
+        ttk_bootstrap.Button(
+            button_frame, 
+            text="OK", 
+            command=on_ok,
+            bootstyle=PRIMARY
+        ).pack(side=RIGHT)
     
     def get_result(self):
         """Return the settings data"""
