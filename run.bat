@@ -31,11 +31,7 @@ if "%1"=="db-reset" (
 
 if "%1"=="test" (
     echo Running tests...
-    python tests\test_ui.py
-    echo.
-    python tests\test_database.py
-    echo.
-    python tests\test_nexus_api.py
+    python tests\run_all_tests.py
     goto :end
 )
 

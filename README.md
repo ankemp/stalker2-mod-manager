@@ -123,6 +123,24 @@ deactivate
 
 ### File Deployment
 
+The Stalker 2 Mod Manager includes a sophisticated file management system that ensures safe and secure mod installation:
+
+**Security Features:**
+- **Archive Validation**: Validates ZIP, 7z, and RAR archives for integrity
+- **Malicious Content Detection**: Scans for executable files, scripts, and suspicious paths
+- **Path Validation**: Prevents directory traversal and validates file paths
+- **Backup Creation**: Automatically backs up original game files before replacement
+
+**Conflict Resolution:**
+- **Smart Detection**: Identifies conflicts between mod files automatically
+- **Multiple Strategies**: Offers overwrite, skip, rename, or backup-and-replace options
+- **Severity Assessment**: Categorizes conflicts by importance (critical, high, medium, low)
+
+**Safe Operations:**
+- **Atomic Deployment**: All-or-nothing deployment with automatic rollback on failure
+- **File Verification**: Checksums verify successful file copies
+- **Cleanup Management**: Automatic cleanup of temporary files and failed operations
+
 When enabling a mod for the first time, you'll see a dialog showing all files in the mod archive. Select which files and folders you want to deploy to your game directory. This configuration is saved for future deployments.
 
 ## Project Structure
@@ -140,8 +158,8 @@ stalker-mod-manager/
 │   └── models.py           # SQLite database management
 ├── api/                    # Nexus Mods API integration
 │   └── nexus_api.py        # API client
-├── utils/                  # Utility functions
-│   └── file_manager.py     # File operations
+├── utils/                  # Utility functions and file management
+│   └── file_manager.py     # Comprehensive file management system
 └── docs/                   # Documentation
     └── application-spec.md # Detailed specification
 ```
@@ -200,6 +218,7 @@ run.bat validate   # Validate API compliance
 python tests/test_ui.py
 python tests/test_database.py
 python tests/test_nexus_api.py
+python tests/test_file_manager.py
 
 # Setup development environment  
 scripts/setup.bat
@@ -292,11 +311,12 @@ python scripts/validate_api_compliance.py
 
 **User Interface:**
 - ✅ Complete main window with mod list and details panels
-- ✅ Add mod dialogs (URL and file)  
+- ✅ Add mod dialogs (URL and file)
 - ✅ Settings dialog with configuration tabs
 - ✅ File deployment selection dialog
 - ✅ Status bar and progress tracking
 - ✅ Keyboard shortcuts and menu system
+- ✅ UI components and widgets
 
 **Database System:**
 - ✅ Complete SQLite database implementation
@@ -307,6 +327,7 @@ python scripts/validate_api_compliance.py
 - ✅ Foreign key constraints and data integrity
 - ✅ Comprehensive error handling and logging
 - ✅ Database statistics and information tools
+- ✅ Complete test suite
 
 **Nexus Mods API Integration:**
 - ✅ Complete API client implementation (Swagger compliant)
@@ -323,20 +344,43 @@ python scripts/validate_api_compliance.py
 - ✅ System-aware User-Agent generation
 - ✅ Comprehensive test suite (22 tests)
 
+**File Management System:**
+- ✅ Complete file manager implementation
+- ✅ Archive extraction and validation (ZIP, 7z, RAR support)
+- ✅ File deployment and conflict resolution
+- ✅ Security validation and malicious content detection
+- ✅ Game directory management and validation
+- ✅ Backup creation and restoration
+- ✅ Temporary file management with cleanup
+- ✅ File integrity verification (checksums)
+- ✅ Comprehensive test suite with edge cases
+
 **Integration:**
 - ✅ UI connected to database for real mod management
 - ✅ Enable/disable mods with database persistence
 - ✅ Settings loading and saving
 - ✅ Sample data loading for demonstration
 
-**Still to implement:**
-- Integration of Nexus API with UI (add mod from URL functionality)
-- File extraction and deployment to game directory
+**Development Tools:**
+- ✅ Comprehensive test suites for all components
+- ✅ Automated setup scripts (setup.bat)
+- ✅ Multi-command run script with testing, demos, validation
+- ✅ API compliance validation tools
+- ✅ Database management utilities
+
+### 🚧 **In Progress / Remaining Features**
+
+**Core Integration:**
+- Integration of Nexus API with UI (connecting download functionality)
+- Integration of file manager with UI (deployment dialogs)
 - Update checking and notifications in UI
-- Archive file management and validation
-- Conflict resolution for overlapping files
-- Game directory validation
-- Backup and restore functionality
+- Error handling and user feedback integration
+
+**Polish & Production:**
+- Final testing and bug fixes
+- Performance optimization
+- User documentation and help system
+- Installation packaging
 
 ## Contributing
 

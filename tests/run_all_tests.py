@@ -78,12 +78,11 @@ def main():
     print("Stalker 2 Mod Manager - Comprehensive Test Suite")
     print("=" * 60)
     
-    # List of test files to run
-    test_files = [
-        "test_ui.py",
-        "test_database.py", 
-        "test_nexus_api.py"
-    ]
+    # Discover all test files matching 'test_*.py' in the tests directory
+    test_files = sorted([
+        f.name for f in Path(__file__).parent.glob("test_*.py")
+        if f.name != "run_all_tests.py"
+    ])
     
     # Track results
     results = {}
