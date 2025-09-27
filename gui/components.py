@@ -7,10 +7,6 @@ from tkinter import ttk
 import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
 
-
-class ModListFrame:
-    """Frame containing the list of installed mods"""
-    
 class ModListFrame:
     """Frame containing the list of installed mods"""
     
@@ -458,20 +454,24 @@ class ModDetailsFrame:
         self.update_button.pack(side=LEFT, padx=(0, 5))
         
         # Configure files button
-        ttk_bootstrap.Button(
+        self.configure_files_button = ttk_bootstrap.Button(
             buttons_frame,
             text="Configure Files",
             command=self.configure_files,
-            bootstyle=SECONDARY
-        ).pack(side=LEFT, padx=(0, 5))
-        
+            bootstyle=SECONDARY,
+            state=DISABLED
+        )
+        self.configure_files_button.pack(side=LEFT, padx=(0, 5))
+
         # Remove button
-        ttk_bootstrap.Button(
+        self.remove_mod_button = ttk_bootstrap.Button(
             buttons_frame,
             text="Remove Mod",
             command=self.remove_mod,
-            bootstyle=DANGER
-        ).pack(side=RIGHT)
+            bootstyle=DANGER,
+            state=DISABLED
+        )
+        self.remove_mod_button.pack(side=RIGHT)
     
     def create_files_section(self):
         """Create the deployed files section"""
@@ -546,12 +546,16 @@ class ModDetailsFrame:
         
         # Update toggle button
         if mod_data.get("enabled"):
-            self.toggle_button.config(text="Disable Mod", bootstyle=WARNING)
+            self.toggle_button.config(text="Disable Mod")
         else:
-            self.toggle_button.config(text="Enable Mod", bootstyle=SUCCESS)
+            self.toggle_button.config(text="Enable Mod")
         
         # Update files list
         self.update_files_list(mod_data)
+
+        # Enable action buttons
+        self.configure_files_button.config(state=NORMAL)
+        self.remove_mod_button.config(state=NORMAL)
     
     def update_files_list(self, mod_data):
         """Update the deployed files list"""
@@ -583,7 +587,7 @@ class ModDetailsFrame:
                 "",
                 "end",
                 text="No files deployed (mod is disabled)",
-                values=(""),
+                values=("",),
                 tags=()
             )
     
@@ -601,9 +605,10 @@ class ModDetailsFrame:
         self.description_text.config(state=tk.DISABLED)
         
         self.nexus_frame.pack_forget()
-        self.toggle_button.config(text="Enable Mod", bootstyle=SUCCESS, state=DISABLED)
+        self.toggle_button.config(text="Enable Mod", state=DISABLED)
         self.update_button.config(state=DISABLED)
-        
+        self.configure_files_button.config(state=DISABLED)
+        self.remove_mod_button.config(state=DISABLED)
         # Clear files list
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
