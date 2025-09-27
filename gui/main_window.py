@@ -449,10 +449,10 @@ class MainWindow:
                     file_info = self.nexus_client.get_file_info(mod_id, file_id)
                     self.archive_manager.add_archive(
                         mod_id=new_mod_id,
-                        file_name=file_info['file_name'],
-                        file_path=archive_path,
                         version=mod_info.get('version', '1.0.0'),
-                        nexus_file_id=file_id
+                        file_name=file_info['file_name'],
+                        file_size=file_info.get('size_kb', 0) * 1024 if file_info.get('size_kb') else None
+                        # TODO: Store nexus_file_id in a separate field if needed
                     )
                     
                     # Refresh the UI on main thread
@@ -590,9 +590,9 @@ class MainWindow:
                 # Add archive record
                 self.archive_manager.add_archive(
                     mod_id=new_mod_id,
+                    version="1.0.0",
                     file_name=archive_name,
-                    file_path=str(dest_path),
-                    version="1.0.0"
+                    file_size=None  # TODO: Get actual file size
                 )
                 
                 # Refresh the UI on main thread
@@ -1230,19 +1230,19 @@ class MainWindow:
                     file_info = self.nexus_client.get_file_info(nexus_mod_id, file_id)
                     self.archive_manager.update_archive(old_archive['id'], {
                         'file_name': file_info['file_name'],
-                        'file_path': new_archive_path,
                         'version': mod_info.get('version', '1.0.0'),
-                        'nexus_file_id': file_id
+                        'file_size': file_info.get('size_kb', 0) * 1024 if file_info.get('size_kb') else None
+                        # TODO: Store nexus_file_id and file_path in separate fields if needed
                     })
                 else:
                     # Add new archive record if none exists
                     file_info = self.nexus_client.get_file_info(nexus_mod_id, file_id)
                     self.archive_manager.add_archive(
                         mod_id=mod_data['id'],
-                        file_name=file_info['file_name'],
-                        file_path=new_archive_path,
                         version=mod_info.get('version', '1.0.0'),
-                        nexus_file_id=file_id
+                        file_name=file_info['file_name'],
+                        file_size=file_info.get('size_kb', 0) * 1024 if file_info.get('size_kb') else None
+                        # TODO: Store nexus_file_id in a separate field if needed
                     )
                 
                 # Update mod record
