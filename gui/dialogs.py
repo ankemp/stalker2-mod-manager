@@ -628,26 +628,27 @@ class DeploymentSelectionDialog(BaseDialog):
         self.tree.tag_configure("unchecked", foreground="black")
     
     def on_tree_click(self, event):
-        """Handle tree item clicks for checkbox functionality"""
+        """Handle tree item clicks for checkbox functionality, but ignore expand/collapse arrow clicks."""
+        # Only toggle if click is on the icon/text, not the expand/collapse arrow
+        region = self.tree.identify("region", event.x, event.y)
+        if region not in ("tree", "cell", "text"):
+            return  # Ignore clicks on the expand/collapse arrow
         item = self.tree.identify("item", event.x, event.y)
         if item:
             self.toggle_item(item)
     
-    def toggle_item(self, item_id):
-        """Toggle the checked state of a tree item"""
+    def toggle_item(self, item_id, recursive=True):
+        """Toggle the checked state of a tree item. If directory, toggle all children recursively."""
         # Find the item data
         item_data = None
         for data in self.tree_items.values():
             if data["id"] == item_id:
                 item_data = data
                 break
-        
         if not item_data:
             return
-        
         # Toggle state
         item_data["checked"] = not item_data["checked"]
-        
         # Update display
         current_text = self.tree.item(item_id, "text")
         if item_data["checked"]:
@@ -656,6 +657,18 @@ class DeploymentSelectionDialog(BaseDialog):
         else:
             new_text = current_text.replace("☑", "☐")
             self.tree.item(item_id, text=new_text, tags=("unchecked",))
+        # If this is a folder, recursively toggle all children to match
+        if recursive:
+            children = self.tree.get_children(item_id)
+            for child_id in children:
+                # Only update if child state doesn't match parent
+                child_data = None
+                for d in self.tree_items.values():
+                    if d["id"] == child_id:
+                        child_data = d
+                        break
+                if child_data and child_data["checked"] != item_data["checked"]:
+                    self.toggle_item(child_id, recursive=True)
     
     def select_all(self):
         """Select all items in the tree"""
