@@ -360,6 +360,10 @@ python scripts/validate_api_compliance.py
 - ✅ Enable/disable mods with database persistence
 - ✅ Settings loading and saving
 - ✅ Sample data loading for demonstration
+- ✅ **Nexus API integration with UI (complete download functionality)**
+- ✅ **File manager integration with UI (deployment system)**
+- ✅ **Update checking and notifications in UI**
+- ✅ **Error handling and user feedback integration through threading**
 
 **Development Tools:**
 - ✅ Comprehensive test suites for all components
@@ -369,12 +373,6 @@ python scripts/validate_api_compliance.py
 - ✅ Database management utilities
 
 ### 🚧 **In Progress / Remaining Features**
-
-**Core Integration:**
-- Integration of Nexus API with UI (connecting download functionality)
-- Integration of file manager with UI (deployment dialogs)
-- Update checking and notifications in UI
-- Error handling and user feedback integration
 
 **Polish & Production:**
 - Final testing and bug fixes

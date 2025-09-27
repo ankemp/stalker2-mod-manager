@@ -30,12 +30,44 @@ class MainWindow:
         self.archive_manager = ArchiveManager(self.db_manager)
         self.deployment_manager = DeploymentManager(self.db_manager)
         
+        # Initialize Nexus API client and file manager
+        self.nexus_client = None
+        self.file_manager = None
+        
         # Load some sample data if database is empty
         self.load_initial_data()
         
         self.setup_menu()
         self.setup_main_ui()
         self.setup_bindings()
+        
+        # Initialize API components after UI is ready
+        self.init_api_components()
+    
+    def init_api_components(self):
+        """Initialize API client and file manager based on current settings"""
+        try:
+            # Initialize file manager
+            from utils.file_manager import FileManager
+            import config as app_config
+            self.file_manager = FileManager(
+                game_path=self.config_manager.get_game_path() or "",
+                mods_path=self.config_manager.get_mods_directory() or app_config.DEFAULT_MODS_DIR,
+                backup_path=app_config.BACKUP_DIRECTORY
+            )
+            
+            # Initialize Nexus API client if API key is available
+            api_key = self.config_manager.get_api_key()
+            if api_key:
+                from api.nexus_api import NexusModsClient
+                self.nexus_client = NexusModsClient(api_key)
+                self.status_bar.set_connection_status("API key configured")
+            else:
+                self.status_bar.set_connection_status("No API key configured")
+                
+        except Exception as e:
+            print(f"Error initializing API components: {e}")
+            self.status_bar.set_status(f"Error initializing API components: {e}")
     
     def load_initial_data(self):
         """Load initial sample data if database is empty"""
@@ -320,25 +352,273 @@ class MainWindow:
         dialog = AddModDialog(self.root, mode="url")
         result = dialog.show()
         if result:
-            # TODO: Validate URL format
-            # TODO: Extract mod ID and game domain
-            # TODO: Fetch mod metadata from API
-            # TODO: Download mod archive
-            # TODO: Add to database
-            # TODO: Refresh mod list
-            self.status_bar.set_status(f"Adding mod from URL: {result['url']}")
+            self.download_mod_from_url(result)
+    
+    def download_mod_from_url(self, dialog_result):
+        """Download and install mod from Nexus URL"""
+        import threading
+        from api.nexus_api import NexusAPIError, ModDownloader
+        import config as app_config
+        
+        url = dialog_result['url']
+        auto_enable = dialog_result['auto_enable']
+        check_updates = dialog_result['check_updates']
+        
+        self.status_bar.set_status(f"Processing URL: {url}")
+        
+        # Check if we have API client
+        if not self.nexus_client:
+            messagebox.showerror("API Error", "No API key configured. Please go to Settings > Nexus API and add your API key.")
+            return
+        
+        try:
+            # Validate and parse URL
+            if not self.nexus_client.is_valid_nexus_url(url):
+                messagebox.showerror("Invalid URL", "Please enter a valid Nexus Mods URL for Stalker 2.")
+                return
+            
+            parsed_url = self.nexus_client.parse_nexus_url(url)
+            mod_id = parsed_url['mod_id']
+            file_id = parsed_url.get('file_id')
+            
+            def download_thread():
+                try:
+                    # Update status
+                    self.root.after(0, lambda: self.status_bar.set_status("Fetching mod information..."))
+                    
+                    # Get mod information from API
+                    mod_info = self.nexus_client.get_mod_info(mod_id)
+                    
+                    # Check if mod already exists
+                    existing_mod = self.mod_manager.get_mod_by_nexus_id(mod_id)
+                    if existing_mod:
+                        self.root.after(0, lambda: messagebox.showinfo(
+                            "Mod Already Exists", 
+                            f"Mod '{mod_info['name']}' is already installed.\n\nUse 'Check Updates' to update existing mods."
+                        ))
+                        return
+                    
+                    # Get latest file if no specific file was requested
+                    if not file_id:
+                        self.root.after(0, lambda: self.status_bar.set_status("Finding latest mod file..."))
+                        files = self.nexus_client.get_mod_files(mod_id)
+                        main_files = [f for f in files if f.get('category_name') == 'MAIN']
+                        if not main_files:
+                            main_files = files  # Fall back to any file
+                        
+                        if not main_files:
+                            self.root.after(0, lambda: messagebox.showerror(
+                                "No Files", 
+                                f"No downloadable files found for mod '{mod_info['name']}'."
+                            ))
+                            return
+                        
+                        # Get the most recent file
+                        latest_file = max(main_files, key=lambda f: f.get('uploaded_timestamp', 0))
+                        file_id = latest_file['file_id']
+                    
+                    # Create progress callback
+                    def progress_callback(downloaded, total):
+                        if total > 0:
+                            percent = int((downloaded / total) * 100)
+                            self.root.after(0, lambda: self.status_bar.set_progress(percent))
+                            self.root.after(0, lambda: self.status_bar.set_status(
+                                f"Downloading {mod_info['name']}... {percent}%"
+                            ))
+                    
+                    # Download the mod
+                    self.root.after(0, lambda: self.status_bar.set_status(f"Downloading {mod_info['name']}..."))
+                    downloader = ModDownloader(self.nexus_client, app_config.DEFAULT_MODS_DIR)
+                    archive_path = downloader.download_mod(mod_id, file_id, progress_callback)
+                    
+                    # Add mod to database
+                    self.root.after(0, lambda: self.status_bar.set_status("Adding mod to database..."))
+                    mod_data = {
+                        "nexus_mod_id": mod_id,
+                        "mod_name": mod_info['name'],
+                        "author": mod_info['author'],
+                        "summary": mod_info.get('summary', ''),
+                        "latest_version": mod_info.get('version', '1.0.0'),
+                        "enabled": auto_enable
+                    }
+                    
+                    new_mod_id = self.mod_manager.add_mod(mod_data)
+                    
+                    # Add archive record
+                    file_info = self.nexus_client.get_file_info(mod_id, file_id)
+                    self.archive_manager.add_archive(
+                        mod_id=new_mod_id,
+                        file_name=file_info['file_name'],
+                        file_path=archive_path,
+                        version=mod_info.get('version', '1.0.0'),
+                        nexus_file_id=file_id
+                    )
+                    
+                    # Refresh the UI on main thread
+                    self.root.after(0, self.refresh_mod_list)
+                    self.root.after(0, lambda: self.status_bar.set_progress(0))
+                    self.root.after(0, lambda: self.status_bar.set_status(f"Successfully added mod: {mod_info['name']}"))
+                    
+                    # Show success message
+                    message = f"Successfully added mod '{mod_info['name']}'"
+                    if auto_enable:
+                        message += " and enabled it"
+                    message += "."
+                    
+                    self.root.after(0, lambda: messagebox.showinfo("Mod Added", message))
+                    
+                except NexusAPIError as e:
+                    error_msg = f"Nexus API Error: {e}"
+                    if e.status_code == 401:
+                        error_msg = "API key is invalid or expired. Please check your API key in settings."
+                    elif e.status_code == 404:
+                        error_msg = "Mod not found. Please check the URL."
+                    
+                    self.root.after(0, lambda: messagebox.showerror("API Error", error_msg))
+                    self.root.after(0, lambda: self.status_bar.set_status(f"Error: {error_msg}"))
+                    
+                except Exception as e:
+                    error_msg = f"Error downloading mod: {e}"
+                    self.root.after(0, lambda: messagebox.showerror("Download Error", error_msg))
+                    self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+                    
+                finally:
+                    self.root.after(0, lambda: self.status_bar.set_progress(0))
+            
+            # Start download in background thread
+            thread = threading.Thread(target=download_thread, daemon=True)
+            thread.start()
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Error processing URL: {e}")
+            self.status_bar.set_status(f"Error: {e}")
     
     def add_mod_from_file(self):
         """Show dialog to add mod from local file"""
         dialog = AddModDialog(self.root, mode="file")
         result = dialog.show()
         if result:
-            # TODO: Validate file is a zip archive
-            # TODO: Extract mod metadata from filename/archive
-            # TODO: Copy archive to mods directory
-            # TODO: Add to database
-            # TODO: Refresh mod list
-            self.status_bar.set_status(f"Adding mod from file: {result['file_path']}")
+            self.install_mod_from_file(result)
+    
+    def install_mod_from_file(self, dialog_result):
+        """Install mod from local archive file"""
+        import threading
+        import os
+        from pathlib import Path
+        import config as app_config
+        
+        file_path = dialog_result['file_path']
+        auto_enable = dialog_result['auto_enable']
+        
+        self.status_bar.set_status(f"Processing file: {os.path.basename(file_path)}")
+        
+        if not self.file_manager:
+            messagebox.showerror("Error", "File manager not initialized. Please check your configuration.")
+            return
+        
+        def install_thread():
+            try:
+                # Validate the archive
+                self.root.after(0, lambda: self.status_bar.set_status("Validating archive..."))
+                
+                if not self.file_manager.validate_archive(file_path):
+                    self.root.after(0, lambda: messagebox.showerror(
+                        "Invalid Archive", 
+                        "The selected file is not a valid archive or may be corrupted."
+                    ))
+                    return
+                
+                # Check for security issues
+                security_result = self.file_manager.scan_archive_security(file_path)
+                if not security_result['safe']:
+                    warnings = "\n".join(security_result['warnings'])
+                    response = messagebox.askyesno(
+                        "Security Warning",
+                        f"Security issues detected in archive:\n\n{warnings}\n\nDo you want to continue anyway?"
+                    )
+                    if not response:
+                        return
+                
+                # Extract mod name from filename
+                file_name = Path(file_path).stem
+                mod_name = file_name.replace('_', ' ').replace('-', ' ').title()
+                
+                # Check if mod with same name already exists
+                existing_mods = self.mod_manager.get_all_mods()
+                for mod in existing_mods:
+                    if mod['mod_name'].lower() == mod_name.lower():
+                        self.root.after(0, lambda: messagebox.showwarning(
+                            "Mod Already Exists",
+                            f"A mod with the name '{mod_name}' already exists.\n\nPlease rename the file or remove the existing mod first."
+                        ))
+                        return
+                
+                # Copy archive to mods directory
+                self.root.after(0, lambda: self.status_bar.set_status("Copying archive to mods directory..."))
+                
+                mods_dir = Path(app_config.DEFAULT_MODS_DIR)
+                mods_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate unique filename if necessary
+                archive_name = Path(file_path).name
+                dest_path = mods_dir / archive_name
+                counter = 1
+                while dest_path.exists():
+                    name_part = Path(file_path).stem
+                    ext_part = Path(file_path).suffix
+                    archive_name = f"{name_part}_{counter}{ext_part}"
+                    dest_path = mods_dir / archive_name
+                    counter += 1
+                
+                # Copy the file
+                import shutil
+                shutil.copy2(file_path, dest_path)
+                
+                # Add mod to database
+                self.root.after(0, lambda: self.status_bar.set_status("Adding mod to database..."))
+                mod_data = {
+                    "mod_name": mod_name,
+                    "author": "Unknown",
+                    "summary": f"Local mod installed from {Path(file_path).name}",
+                    "latest_version": "1.0.0",
+                    "enabled": auto_enable
+                }
+                
+                new_mod_id = self.mod_manager.add_mod(mod_data)
+                
+                # Add archive record
+                self.archive_manager.add_archive(
+                    mod_id=new_mod_id,
+                    file_name=archive_name,
+                    file_path=str(dest_path),
+                    version="1.0.0"
+                )
+                
+                # Refresh the UI on main thread
+                self.root.after(0, self.refresh_mod_list)
+                self.root.after(0, lambda: self.status_bar.set_status(f"Successfully added mod: {mod_name}"))
+                
+                # Show success message
+                message = f"Successfully added mod '{mod_name}'"
+                if auto_enable:
+                    message += " and enabled it"
+                message += "."
+                
+                self.root.after(0, lambda: messagebox.showinfo("Mod Added", message))
+                
+            except Exception as e:
+                error_msg = f"Error installing mod: {e}"
+                self.root.after(0, lambda: messagebox.showerror("Installation Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+        
+        # Start installation in background thread
+        thread = threading.Thread(target=install_thread, daemon=True)
+        thread.start()
+    
+    def refresh_mod_list(self):
+        """Refresh the mod list display"""
+        if hasattr(self, 'mod_list_frame'):
+            self.mod_list_frame.load_mod_data()
     
     def open_settings(self):
         """Show settings dialog"""
@@ -369,6 +649,8 @@ class MainWindow:
                 # Update connection status if API key was set
                 if result["api_key"]:
                     self.status_bar.set_connection_status("API key configured")
+                    # Reinitialize API components with new settings
+                    self.init_api_components()
                 
             except Exception as e:
                 print(f"Error saving settings: {e}")
@@ -482,28 +764,530 @@ class MainWindow:
     
     def check_for_updates(self):
         """Check for updates for all mods"""
-        # TODO: Iterate through all mods with Nexus IDs
-        # TODO: Check latest version against installed version
-        # TODO: Update UI with available updates
-        # TODO: Show summary dialog
+        import threading
+        from api.nexus_api import NexusAPIError
+        
+        if not self.nexus_client:
+            messagebox.showwarning("API Not Available", "No API key configured. Please go to Settings > Nexus API and add your API key.")
+            return
+        
         self.status_bar.set_status("Checking for mod updates...")
+        
+        def update_check_thread():
+            try:
+                # Get all mods with Nexus IDs
+                all_mods = self.mod_manager.get_all_mods()
+                nexus_mods = [mod for mod in all_mods if mod.get('nexus_mod_id')]
+                
+                if not nexus_mods:
+                    self.root.after(0, lambda: messagebox.showinfo(
+                        "No Nexus Mods", 
+                        "No mods from Nexus Mods found to check for updates."
+                    ))
+                    self.root.after(0, lambda: self.status_bar.set_status("No Nexus mods to check"))
+                    return
+                
+                updates_available = []
+                errors = []
+                checked_count = 0
+                
+                for mod in nexus_mods:
+                    try:
+                        mod_id = mod['nexus_mod_id']
+                        current_version = mod.get('latest_version', '0.0.0')
+                        
+                        # Update progress
+                        checked_count += 1
+                        progress = int((checked_count / len(nexus_mods)) * 100)
+                        self.root.after(0, lambda p=progress: self.status_bar.set_progress(p))
+                        self.root.after(0, lambda m=mod: self.status_bar.set_status(f"Checking {m['mod_name']}..."))
+                        
+                        # Get latest mod info
+                        mod_info = self.nexus_client.get_mod_info(mod_id)
+                        latest_version = mod_info.get('version', '0.0.0')
+                        
+                        # Simple version comparison (this could be improved)
+                        if latest_version != current_version:
+                            updates_available.append({
+                                'mod': mod,
+                                'current_version': current_version,
+                                'latest_version': latest_version,
+                                'mod_info': mod_info
+                            })
+                            
+                            # Update the mod's latest version in database
+                            self.mod_manager.update_mod(mod['id'], {'latest_version': latest_version})
+                        
+                    except NexusAPIError as e:
+                        errors.append(f"{mod['mod_name']}: {e}")
+                    except Exception as e:
+                        errors.append(f"{mod['mod_name']}: Unexpected error - {e}")
+                
+                # Show results on main thread
+                self.root.after(0, lambda: self.status_bar.set_progress(0))
+                
+                if updates_available or errors:
+                    self.root.after(0, lambda: self.show_update_results(updates_available, errors))
+                else:
+                    self.root.after(0, lambda: messagebox.showinfo(
+                        "No Updates", 
+                        "All mods are up to date!"
+                    ))
+                    self.root.after(0, lambda: self.status_bar.set_status("All mods are up to date"))
+                
+                # Refresh mod list to show updated versions
+                self.root.after(0, self.refresh_mod_list)
+                
+            except Exception as e:
+                error_msg = f"Error checking for updates: {e}"
+                self.root.after(0, lambda: messagebox.showerror("Update Check Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+            finally:
+                self.root.after(0, lambda: self.status_bar.set_progress(0))
+        
+        # Start update check in background thread
+        thread = threading.Thread(target=update_check_thread, daemon=True)
+        thread.start()
+    
+    def show_update_results(self, updates_available, errors):
+        """Show the results of update checking"""
+        # Create a results dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Update Check Results")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Set size and center
+        dialog.geometry("600x400")
+        dialog.resizable(True, True)
+        
+        main_frame = ttk_bootstrap.Frame(dialog)
+        main_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Create notebook for different result types
+        notebook = ttk_bootstrap.Notebook(main_frame)
+        notebook.pack(fill=BOTH, expand=True, pady=(0, 20))
+        
+        # Updates available tab
+        if updates_available:
+            updates_frame = ttk_bootstrap.Frame(notebook)
+            notebook.add(updates_frame, text=f"Updates Available ({len(updates_available)})")
+            
+            ttk_bootstrap.Label(
+                updates_frame, 
+                text="The following mods have updates available:",
+                font=("TkDefaultFont", 10, "bold")
+            ).pack(anchor=W, pady=(10, 5))
+            
+            # Create scrollable list
+            list_frame = ttk_bootstrap.Frame(updates_frame)
+            list_frame.pack(fill=BOTH, expand=True, pady=(0, 10))
+            
+            scrollbar = ttk_bootstrap.Scrollbar(list_frame)
+            scrollbar.pack(side=RIGHT, fill=Y)
+            
+            listbox = tk.Listbox(list_frame, yscrollcommand=scrollbar.set)
+            listbox.pack(fill=BOTH, expand=True)
+            scrollbar.config(command=listbox.yview)
+            
+            for update in updates_available:
+                mod = update['mod']
+                item_text = f"{mod['mod_name']} - {update['current_version']} → {update['latest_version']}"
+                listbox.insert(tk.END, item_text)
+        
+        # Errors tab
+        if errors:
+            errors_frame = ttk_bootstrap.Frame(notebook)
+            notebook.add(errors_frame, text=f"Errors ({len(errors)})")
+            
+            ttk_bootstrap.Label(
+                errors_frame, 
+                text="Errors occurred while checking these mods:",
+                font=("TkDefaultFont", 10, "bold")
+            ).pack(anchor=W, pady=(10, 5))
+            
+            # Create scrollable text
+            text_frame = ttk_bootstrap.Frame(errors_frame)
+            text_frame.pack(fill=BOTH, expand=True, pady=(0, 10))
+            
+            scrollbar_text = ttk_bootstrap.Scrollbar(text_frame)
+            scrollbar_text.pack(side=RIGHT, fill=Y)
+            
+            text_widget = tk.Text(text_frame, yscrollcommand=scrollbar_text.set, wrap=tk.WORD)
+            text_widget.pack(fill=BOTH, expand=True)
+            scrollbar_text.config(command=text_widget.yview)
+            
+            for error in errors:
+                text_widget.insert(tk.END, error + "\n\n")
+            text_widget.config(state=tk.DISABLED)
+        
+        # Button frame
+        button_frame = ttk_bootstrap.Frame(main_frame)
+        button_frame.pack(fill=X)
+        
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Close",
+            command=dialog.destroy,
+            bootstyle=PRIMARY
+        ).pack(side=RIGHT)
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (self.root.winfo_rootx() + self.root.winfo_width() // 2 - dialog.winfo_width() // 2)
+        y = (self.root.winfo_rooty() + self.root.winfo_height() // 2 - dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
     
     def deploy_changes(self):
         """Deploy all pending changes to the game directory"""
-        # TODO: Get list of all enabled mods
-        # TODO: Remove files from disabled mods
-        # TODO: Deploy files from enabled mods
-        # TODO: Update deployed_files table
-        # TODO: Show deployment summary
+        import threading
+        
+        if not self.file_manager:
+            messagebox.showerror("Error", "File manager not initialized. Please check your game path in settings.")
+            return
+        
+        game_path = self.config_manager.get_game_path()
+        if not game_path:
+            messagebox.showwarning("Game Path Not Set", "Please set your Stalker 2 game path in Settings > Paths before deploying mods.")
+            return
+        
+        # Confirm deployment
+        result = messagebox.askyesno(
+            "Confirm Deployment",
+            "Deploy all mod changes to the game directory?\n\n"
+            "This will:\n"
+            "• Remove files from disabled mods\n"
+            "• Deploy files from enabled mods\n"
+            "• Create backups of original files\n\n"
+            "Continue?"
+        )
+        if not result:
+            return
+        
         self.status_bar.set_status("Deploying changes to game directory...")
+        
+        def deploy_thread():
+            try:
+                deployed_count = 0
+                errors = []
+                
+                # Get all mods
+                all_mods = self.mod_manager.get_all_mods()
+                enabled_mods = [mod for mod in all_mods if mod['enabled']]
+                disabled_mods = [mod for mod in all_mods if not mod['enabled']]
+                
+                # First, remove files from disabled mods
+                if disabled_mods:
+                    self.root.after(0, lambda: self.status_bar.set_status("Removing files from disabled mods..."))
+                    
+                    for mod in disabled_mods:
+                        try:
+                            # Get deployed files for this mod
+                            deployed_files = self.deployment_manager.get_deployed_files(mod['id'])
+                            
+                            for file_record in deployed_files:
+                                file_path = file_record['file_path']
+                                if self.file_manager.remove_deployed_file(file_path):
+                                    # Remove from deployed_files table
+                                    self.deployment_manager.remove_deployed_file(
+                                        mod['id'], 
+                                        file_record['source_path'], 
+                                        file_path
+                                    )
+                            
+                        except Exception as e:
+                            error_msg = f"Error removing files for '{mod['mod_name']}': {e}"
+                            errors.append(error_msg)
+                            print(error_msg)
+                
+                # Deploy files from enabled mods
+                if enabled_mods:
+                    total_mods = len(enabled_mods)
+                    
+                    for i, mod in enumerate(enabled_mods):
+                        try:
+                            progress = int(((i + 1) / total_mods) * 100)
+                            self.root.after(0, lambda p=progress: self.status_bar.set_progress(p))
+                            self.root.after(0, lambda m=mod: self.status_bar.set_status(f"Deploying {m['mod_name']}..."))
+                            
+                            # Get mod archive
+                            archives = self.archive_manager.get_mod_archives(mod['id'])
+                            if not archives:
+                                errors.append(f"No archive found for mod '{mod['mod_name']}'")
+                                continue
+                            
+                            archive_path = archives[0]['file_path']
+                            
+                            # Get deployment selections
+                            selections = self.deployment_manager.get_deployment_selections(mod['id'])
+                            if not selections:
+                                # If no selections, skip this mod
+                                errors.append(f"No file deployment configuration for mod '{mod['mod_name']}'. Please configure files first.")
+                                continue
+                            
+                            # Deploy selected files
+                            selected_files = [sel['file_path'] for sel in selections if sel['selected']]
+                            
+                            if selected_files:
+                                deployment_result = self.file_manager.deploy_mod_files(
+                                    archive_path, 
+                                    selected_files,
+                                    target_directory=game_path
+                                )
+                                
+                                # Update deployed_files table
+                                for source_path, dest_path in deployment_result['deployed_files'].items():
+                                    self.deployment_manager.add_deployed_file(
+                                        mod['id'], 
+                                        source_path, 
+                                        dest_path
+                                    )
+                                
+                                deployed_count += 1
+                                
+                                # Add any warnings
+                                if deployment_result.get('warnings'):
+                                    for warning in deployment_result['warnings']:
+                                        errors.append(f"Warning for '{mod['mod_name']}': {warning}")
+                            
+                        except Exception as e:
+                            error_msg = f"Error deploying '{mod['mod_name']}': {e}"
+                            errors.append(error_msg)
+                            print(error_msg)
+                
+                # Show results on main thread
+                self.root.after(0, lambda: self.status_bar.set_progress(0))
+                
+                if errors:
+                    self.root.after(0, lambda: self.show_deployment_results(deployed_count, errors))
+                else:
+                    self.root.after(0, lambda: messagebox.showinfo(
+                        "Deployment Complete",
+                        f"Successfully deployed {deployed_count} mod(s) to the game directory."
+                    ))
+                
+                self.root.after(0, lambda: self.status_bar.set_status(f"Deployment complete. {deployed_count} mod(s) deployed."))
+                
+            except Exception as e:
+                error_msg = f"Error during deployment: {e}"
+                self.root.after(0, lambda: messagebox.showerror("Deployment Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+                
+            finally:
+                self.root.after(0, lambda: self.status_bar.set_progress(0))
+        
+        # Start deployment in background thread
+        thread = threading.Thread(target=deploy_thread, daemon=True)
+        thread.start()
+    
+    def show_deployment_results(self, deployed_count, errors):
+        """Show the results of deployment"""
+        # Create a results dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Deployment Results")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        
+        # Set size and center
+        dialog.geometry("600x400")
+        dialog.resizable(True, True)
+        
+        main_frame = ttk_bootstrap.Frame(dialog)
+        main_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Summary
+        summary_text = f"Deployment completed with {deployed_count} mod(s) successfully deployed."
+        if errors:
+            summary_text += f"\n{len(errors)} error(s) or warning(s) occurred."
+        
+        ttk_bootstrap.Label(
+            main_frame, 
+            text=summary_text,
+            font=("TkDefaultFont", 10, "bold")
+        ).pack(anchor=W, pady=(0, 10))
+        
+        # Errors/warnings list
+        if errors:
+            ttk_bootstrap.Label(
+                main_frame, 
+                text="Errors and Warnings:",
+                font=("TkDefaultFont", 9, "bold")
+            ).pack(anchor=W, pady=(10, 5))
+            
+            # Create scrollable text
+            text_frame = ttk_bootstrap.Frame(main_frame)
+            text_frame.pack(fill=BOTH, expand=True, pady=(0, 20))
+            
+            scrollbar = ttk_bootstrap.Scrollbar(text_frame)
+            scrollbar.pack(side=RIGHT, fill=Y)
+            
+            text_widget = tk.Text(text_frame, yscrollcommand=scrollbar.set, wrap=tk.WORD)
+            text_widget.pack(fill=BOTH, expand=True)
+            scrollbar.config(command=text_widget.yview)
+            
+            for error in errors:
+                text_widget.insert(tk.END, error + "\n\n")
+            text_widget.config(state=tk.DISABLED)
+        
+        # Button frame
+        button_frame = ttk_bootstrap.Frame(main_frame)
+        button_frame.pack(fill=X)
+        
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Close",
+            command=dialog.destroy,
+            bootstyle=PRIMARY
+        ).pack(side=RIGHT)
+        
+        # Center dialog
+        dialog.update_idletasks()
+        x = (self.root.winfo_rootx() + self.root.winfo_width() // 2 - dialog.winfo_width() // 2)
+        y = (self.root.winfo_rooty() + self.root.winfo_height() // 2 - dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
     
     def update_mod(self, mod_data):
         """Update a specific mod to the latest version"""
-        # TODO: Download latest version from Nexus
-        # TODO: Replace current archive
-        # TODO: Update database
-        # TODO: Refresh UI
-        self.status_bar.set_status(f"Updating mod: {mod_data.get('name', 'Unknown')}")
+        import threading
+        from api.nexus_api import NexusAPIError, ModDownloader
+        import config as app_config
+        import os
+        from pathlib import Path
+        
+        if not self.nexus_client:
+            messagebox.showwarning("API Not Available", "No API key configured. Please go to Settings > Nexus API and add your API key.")
+            return
+        
+        nexus_mod_id = mod_data.get('nexus_mod_id')
+        if not nexus_mod_id:
+            messagebox.showwarning("Cannot Update", "This mod was not downloaded from Nexus Mods and cannot be updated automatically.")
+            return
+        
+        # Confirm update
+        result = messagebox.askyesno(
+            "Confirm Update",
+            f"Update '{mod_data.get('mod_name', 'Unknown')}' to the latest version?\n\n"
+            "This will replace the current archive with the new version."
+        )
+        if not result:
+            return
+        
+        self.status_bar.set_status(f"Updating mod: {mod_data.get('mod_name', 'Unknown')}")
+        
+        def update_thread():
+            try:
+                # Get latest mod info
+                self.root.after(0, lambda: self.status_bar.set_status("Fetching latest mod information..."))
+                mod_info = self.nexus_client.get_mod_info(nexus_mod_id)
+                
+                # Get latest main file
+                self.root.after(0, lambda: self.status_bar.set_status("Finding latest mod file..."))
+                files = self.nexus_client.get_mod_files(nexus_mod_id)
+                main_files = [f for f in files if f.get('category_name') == 'MAIN']
+                if not main_files:
+                    main_files = files  # Fall back to any file
+                
+                if not main_files:
+                    self.root.after(0, lambda: messagebox.showerror(
+                        "No Files", 
+                        f"No downloadable files found for mod '{mod_info['name']}'."
+                    ))
+                    return
+                
+                # Get the most recent file
+                latest_file = max(main_files, key=lambda f: f.get('uploaded_timestamp', 0))
+                file_id = latest_file['file_id']
+                
+                # Create progress callback
+                def progress_callback(downloaded, total):
+                    if total > 0:
+                        percent = int((downloaded / total) * 100)
+                        self.root.after(0, lambda: self.status_bar.set_progress(percent))
+                        self.root.after(0, lambda: self.status_bar.set_status(
+                            f"Downloading {mod_info['name']}... {percent}%"
+                        ))
+                
+                # Download the updated mod
+                self.root.after(0, lambda: self.status_bar.set_status(f"Downloading updated {mod_info['name']}..."))
+                downloader = ModDownloader(self.nexus_client, app_config.DEFAULT_MODS_DIR)
+                new_archive_path = downloader.download_mod(nexus_mod_id, file_id, progress_callback)
+                
+                # Get current archive info to remove old file
+                archives = self.archive_manager.get_mod_archives(mod_data['id'])
+                if archives:
+                    old_archive = archives[0]  # Get the current archive
+                    old_path = old_archive.get('file_path')
+                    
+                    # Remove old archive file if it exists
+                    if old_path and os.path.exists(old_path):
+                        try:
+                            os.remove(old_path)
+                        except Exception as e:
+                            print(f"Warning: Could not remove old archive: {e}")
+                    
+                    # Update archive record
+                    file_info = self.nexus_client.get_file_info(nexus_mod_id, file_id)
+                    self.archive_manager.update_archive(old_archive['id'], {
+                        'file_name': file_info['file_name'],
+                        'file_path': new_archive_path,
+                        'version': mod_info.get('version', '1.0.0'),
+                        'nexus_file_id': file_id
+                    })
+                else:
+                    # Add new archive record if none exists
+                    file_info = self.nexus_client.get_file_info(nexus_mod_id, file_id)
+                    self.archive_manager.add_archive(
+                        mod_id=mod_data['id'],
+                        file_name=file_info['file_name'],
+                        file_path=new_archive_path,
+                        version=mod_info.get('version', '1.0.0'),
+                        nexus_file_id=file_id
+                    )
+                
+                # Update mod record
+                self.root.after(0, lambda: self.status_bar.set_status("Updating mod information..."))
+                self.mod_manager.update_mod(mod_data['id'], {
+                    'latest_version': mod_info.get('version', '1.0.0'),
+                    'summary': mod_info.get('summary', ''),
+                    'updated_at': 'NOW()'
+                })
+                
+                # Clear deployment selections so user can reconfigure if needed
+                self.deployment_manager.clear_deployment_selections(mod_data['id'])
+                
+                # Refresh the UI on main thread
+                self.root.after(0, self.refresh_mod_list)
+                self.root.after(0, lambda: self.status_bar.set_progress(0))
+                self.root.after(0, lambda: self.status_bar.set_status(f"Successfully updated mod: {mod_info['name']}"))
+                
+                # Show success message
+                self.root.after(0, lambda: messagebox.showinfo(
+                    "Mod Updated", 
+                    f"Successfully updated '{mod_info['name']}' to version {mod_info.get('version', '1.0.0')}.\n\n"
+                    "Note: File deployment selections have been cleared. Please reconfigure which files to deploy if the mod is enabled."
+                ))
+                
+            except NexusAPIError as e:
+                error_msg = f"Nexus API Error: {e}"
+                if e.status_code == 401:
+                    error_msg = "API key is invalid or expired. Please check your API key in settings."
+                elif e.status_code == 404:
+                    error_msg = "Mod or file not found. The mod may have been removed."
+                
+                self.root.after(0, lambda: messagebox.showerror("API Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(f"Error: {error_msg}"))
+                
+            except Exception as e:
+                error_msg = f"Error updating mod: {e}"
+                self.root.after(0, lambda: messagebox.showerror("Update Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+                
+            finally:
+                self.root.after(0, lambda: self.status_bar.set_progress(0))
+        
+        # Start update in background thread
+        thread = threading.Thread(target=update_thread, daemon=True)
+        thread.start()
     
     def open_game_directory(self):
         """Open the game directory in file explorer"""

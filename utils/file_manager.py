@@ -1142,3 +1142,153 @@ def normalize_mod_filename(filename: str) -> str:
     filename = filename.strip('_')
     
     return filename
+
+
+class FileManager:
+    """
+    Simplified file manager wrapper for UI integration
+    """
+    
+    def __init__(self, game_path: str, mods_path: str, backup_path: str):
+        """Initialize the file manager"""
+        self.game_path = Path(game_path) if game_path else None
+        self.mods_path = Path(mods_path)
+        self.backup_path = Path(backup_path)
+        
+        # Create directories if they don't exist (only for paths we control)
+        self.mods_path.mkdir(parents=True, exist_ok=True)
+        self.backup_path.mkdir(parents=True, exist_ok=True)
+        
+        # Initialize sub-managers only if game_path is valid
+        if self.game_path and self.game_path.exists():
+            self.mod_file_manager = ModFileManager(str(self.mods_path), str(self.game_path))
+        else:
+            self.mod_file_manager = None
+        
+        self.temp_manager = TempFileManager()
+        self.logger = logging.getLogger(__name__)
+    
+    def validate_archive(self, archive_path: str) -> bool:
+        """Validate that an archive is valid and readable"""
+        try:
+            # Use the validator directly
+            validator = ModFileValidator()
+            return validator.is_valid_archive(archive_path)
+        except Exception as e:
+            self.logger.error(f"Error validating archive {archive_path}: {e}")
+            return False
+    
+    def scan_archive_security(self, archive_path: str) -> Dict[str, Any]:
+        """Scan archive for security issues"""
+        try:
+            # Use the validator directly
+            validator = ModFileValidator()
+            warnings = validator.scan_for_malicious_content(archive_path)
+            return {
+                'safe': len(warnings) == 0,
+                'warnings': warnings
+            }
+        except Exception as e:
+            self.logger.error(f"Error scanning archive {archive_path}: {e}")
+            return {
+                'safe': False,
+                'warnings': [f"Error during security scan: {e}"]
+            }
+    
+    def get_archive_contents(self, archive_path: str) -> List[Dict[str, Any]]:
+        """Get the contents of an archive file"""
+        try:
+            # Use the archive manager directly
+            archive_manager = ArchiveManager(str(self.mods_path))
+            return archive_manager.extract_archive_contents(archive_path)
+        except Exception as e:
+            self.logger.error(f"Error getting archive contents {archive_path}: {e}")
+            return []
+    
+    def deploy_mod_files(self, archive_path: str, selected_files: List[str], 
+                        target_directory: str = None) -> Dict[str, Any]:
+        """Deploy selected files from an archive to the target directory"""
+        if not target_directory and self.game_path:
+            target_directory = str(self.game_path)
+        elif not target_directory:
+            raise ValueError("No target directory specified and no game path configured")
+        
+        try:
+            # Extract selected files to temp directory
+            temp_dir = self.temp_manager.extract_to_temp_dir(archive_path, selected_files)
+            
+            deployed_files = {}
+            warnings = []
+            
+            # Copy files from temp directory to target
+            for file_path in selected_files:
+                source_path = Path(temp_dir) / file_path
+                target_path = Path(target_directory) / file_path
+                
+                if not source_path.exists():
+                    warnings.append(f"File not found in archive: {file_path}")
+                    continue
+                
+                # Create target directory if needed
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Backup original file if it exists
+                if target_path.exists():
+                    backup_file = self.backup_path / f"{target_path.name}.backup"
+                    backup_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(str(target_path), str(backup_file))
+                
+                # Copy the file
+                shutil.copy2(str(source_path), str(target_path))
+                deployed_files[file_path] = str(target_path)
+            
+            return {
+                'deployed_files': deployed_files,
+                'warnings': warnings
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error deploying mod files: {e}")
+            raise
+        finally:
+            # Cleanup temp files
+            self.temp_manager.cleanup()
+    
+    def remove_deployed_file(self, file_path: str) -> bool:
+        """Remove a deployed file and restore backup if available"""
+        try:
+            target_path = Path(file_path)
+            
+            if not target_path.exists():
+                return True  # File already removed
+            
+            # Check for backup
+            backup_file = self.backup_path / f"{target_path.name}.backup"
+            
+            if backup_file.exists():
+                # Restore from backup
+                shutil.copy2(str(backup_file), str(target_path))
+                os.remove(str(backup_file))
+            else:
+                # Just remove the file
+                os.remove(str(target_path))
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error removing deployed file {file_path}: {e}")
+            return False
+    
+    def validate_game_directory(self) -> bool:
+        """Validate that the game directory is correct"""
+        if not self.game_path or not self.game_path.exists():
+            return False
+        
+        if not self.mod_file_manager:
+            return False
+            
+        return self.mod_file_manager.validate_game_directory()
+    
+    def cleanup_temp_files(self) -> None:
+        """Clean up all temporary files"""
+        self.temp_manager.cleanup()

@@ -1,7 +1,26 @@
+# GUI Framework
 ttkbootstrap>=1.10.1
+
+# HTTP Requests and API Communication
 requests>=2.31.0
-pillow>=10.0.0
 urllib3>=2.0.0
 certifi>=2022.0.0
 charset-normalizer>=3.0.0
 idna>=3.0
+
+# Image Processing (for mod thumbnails and icons)
+pillow>=10.0.0
+
+# Note: The following are part of Python's standard library and don't need to be installed:
+# - tkinter, ttk (GUI framework base)
+# - sqlite3 (database)
+# - unittest, unittest.mock (testing)
+# - os, sys, pathlib, logging, typing (system utilities)
+# - time, hashlib, re, json (utilities)
+# - shutil, zipfile, tempfile (file operations)
+# - datetime, stat (system info)
+# - urllib.parse (URL parsing)
+# - contextlib (context managers)
+
+# Development and Testing (optional, uncomment if preferred over unittest)
+# pytest>=7.0.0
