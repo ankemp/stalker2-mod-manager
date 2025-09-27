@@ -374,11 +374,48 @@ python scripts/validate_api_compliance.py
 
 ### 🚧 **In Progress / Remaining Features**
 
+**Core Functionality Integration:**
+- Replace sample data loading with actual database integration in mod list
+- Implement actual archive content reading for file deployment dialog
+- Connect mod enable/disable toggle functionality to file manager
+- Add game path detection logic for automatic game installation discovery
+- Implement save deployment selections to database
+- Update mod status tracking after deployment operations
+- Add mod removal functionality (files, archive, database cleanup)
+
+**Settings & Configuration:**
+- Implement actual API key validation against Nexus Mods API
+- Add automatic game path detection and validation
+- Save and load all user preferences and configuration settings
+- Implement mod directory browsing and management
+
+**File Management Operations:**
+- Connect deployed files tracking to UI display
+- Implement file conflict resolution UI workflows  
+- Add mod deployment status indicators and progress tracking
+- Implement backup and restore operations through UI
+- Add file integrity verification and repair tools
+
+**Application Lifecycle:**
+- Implement proper application shutdown procedures
+- Save pending changes on exit
+- Close database connections cleanly
+- Stop background threads safely
+- Add crash recovery and error reporting
+
+**User Experience Enhancements:**
+- Add URL opening functionality for mod pages and external links
+- Implement mod status color coding (green=enabled, red=disabled)
+- Add game directory and mods directory quick access
+- Implement comprehensive error messaging and user feedback
+- Add tooltips and help system throughout application
+
 **Polish & Production:**
-- Final testing and bug fixes
-- Performance optimization
+- Final testing and bug fixes across all integrated systems
+- Performance optimization for large mod collections
+- Memory management and resource cleanup
 - User documentation and help system
-- Installation packaging
+- Installation packaging and distribution
 
 ## Contributing
 
