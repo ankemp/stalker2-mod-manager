@@ -385,7 +385,6 @@ python scripts/validate_api_compliance.py
 - Add mod removal functionality (files, archive, database cleanup)
 
 **Settings & Configuration:**
-- Implement actual API key validation against Nexus Mods API
 - Add automatic game path detection and validation
 - Save and load all user preferences and configuration settings
 

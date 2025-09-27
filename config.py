@@ -9,7 +9,7 @@ from pathlib import Path
 # Application metadata
 APP_NAME = "Stalker 2 Mod Manager"
 APP_VERSION = "1.0.0"
-APP_AUTHOR = "Stalker Mod Community"
+APP_AUTHOR = "ankemp"
 
 # Check if running in virtual environment
 def is_venv():

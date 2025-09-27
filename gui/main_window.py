@@ -62,7 +62,15 @@ class MainWindow:
             if api_key:
                 from api.nexus_api import NexusModsClient
                 self.nexus_client = NexusModsClient(api_key)
-                self.status_bar.set_connection_status("API key configured")
+                
+                # Check if we have stored user info from previous validation
+                api_user = self.config_manager.get_setting('api_user_name')
+                if api_user:
+                    is_premium = self.config_manager.get_setting('api_is_premium', False)
+                    premium_text = " (Premium)" if is_premium else " (Free)"
+                    self.status_bar.set_connection_status(f"API: {api_user}{premium_text}")
+                else:
+                    self.status_bar.set_connection_status("API key configured (not validated)")
             else:
                 self.status_bar.set_connection_status("No API key configured")
                 

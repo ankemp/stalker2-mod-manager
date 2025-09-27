@@ -79,11 +79,11 @@ class NexusModsClient:
         if time_since_last < self.RATE_LIMIT_DELAY:
             time.sleep(self.RATE_LIMIT_DELAY - time_since_last)
         
-        url = urljoin(self.BASE_URL, endpoint)
-        
+        url = urljoin(self.BASE_URL.rstrip('/') + '/', endpoint.lstrip('/'))
+
         for attempt in range(self.MAX_RETRIES):
             try:
-                logger.debug(f"Making {method} request to {endpoint} (attempt {attempt + 1})")
+                logger.debug(f"Making {method} request to {url} (attempt {attempt + 1})")
                 
                 response = self.session.request(
                     method=method,

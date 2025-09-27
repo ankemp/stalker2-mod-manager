@@ -6,6 +6,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
+import threading
+import logging
+from api.nexus_api import NexusModsClient, NexusAPIError
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class BaseDialog:
@@ -232,7 +238,17 @@ class SettingsDialog(BaseDialog):
             api_key = self.config_manager.get_api_key()
             if api_key:
                 self.api_key_var.set(api_key)
-                self.api_status_var.set("API key configured")
+                # Check if we have validation info stored
+                try:
+                    api_user = self.config_manager.get_setting('api_user_name')
+                    is_premium = self.config_manager.get_setting('api_is_premium', False)
+                    if api_user:
+                        premium_text = " (Premium)" if is_premium else " (Free)"
+                        self.api_status_var.set(f"✓ Configured for {api_user}{premium_text}")
+                    else:
+                        self.api_status_var.set("API key configured (not validated)")
+                except:
+                    self.api_status_var.set("API key configured (not validated)")
             
             game_path = self.config_manager.get_game_path()
             if game_path:
@@ -244,6 +260,7 @@ class SettingsDialog(BaseDialog):
                 
         except Exception as e:
             print(f"Error loading settings: {e}")
+            logger.error(f"Error loading settings: {e}")
     
     def setup_ui(self):
         """Setup the settings dialog UI"""
@@ -346,26 +363,50 @@ class SettingsDialog(BaseDialog):
         api_entry = ttk_bootstrap.Entry(api_frame, textvariable=self.api_key_var, show="*", width=60)
         api_entry.pack(fill=X, padx=10, pady=5)
         
-        # Validate button
-        ttk_bootstrap.Button(
-            api_frame,
+        # Validate button frame
+        validate_frame = ttk_bootstrap.Frame(api_frame)
+        validate_frame.pack(fill=X, padx=10, pady=5)
+        
+        self.validate_button = ttk_bootstrap.Button(
+            validate_frame,
             text="Validate API Key",
             command=self.validate_api_key,
             bootstyle=INFO
-        ).pack(anchor=W, padx=10, pady=5)
+        )
+        self.validate_button.pack(side=LEFT)
+        
+        # Rate limit info button
+        ttk_bootstrap.Button(
+            validate_frame,
+            text="Show Rate Limits",
+            command=self.show_rate_limits,
+            bootstyle=SECONDARY
+        ).pack(side=LEFT, padx=(10, 0))
         
         # API Status
         self.api_status_var = tk.StringVar(value="Not validated")
         status_label = ttk_bootstrap.Label(
             api_frame,
             textvariable=self.api_status_var,
-            font=("TkDefaultFont", 8)
+            font=("TkDefaultFont", 9),
+            wraplength=450
         )
-        status_label.pack(anchor=W, padx=10, pady=(0, 10))
+        status_label.pack(anchor=W, padx=10, pady=(5, 10))
+        
+        # Rate limit display (initially hidden)
+        self.rate_limit_frame = ttk_bootstrap.LabelFrame(api_frame, text="Rate Limit Status")
+        self.rate_limit_var = tk.StringVar(value="Validate API key to see rate limits")
+        rate_limit_label = ttk_bootstrap.Label(
+            self.rate_limit_frame,
+            textvariable=self.rate_limit_var,
+            font=("TkDefaultFont", 8),
+            wraplength=450
+        )
+        rate_limit_label.pack(anchor=W, padx=10, pady=5)
         
         # Help text
-        help_text = ttk_bootstrap.Text(api_frame, height=6, wrap=tk.WORD)
-        help_text.pack(fill=X, padx=10, pady=(0, 10))
+        help_text = ttk_bootstrap.Text(api_frame, height=7, wrap=tk.WORD)
+        help_text.pack(fill=X, padx=10, pady=(10, 10))
         help_text.insert(tk.END, 
             "To get your API key:\n"
             "1. Go to https://www.nexusmods.com/users/myaccount?tab=api\n"
@@ -435,12 +476,164 @@ class SettingsDialog(BaseDialog):
             self.api_status_var.set("No API key entered")
             return
         
-        # TODO: Actually validate API key with Nexus Mods API
-        # For now, just check if it looks like a valid key format
-        if len(api_key) >= 20:
-            self.api_status_var.set("API key format appears valid (not verified)")
-        else:
-            self.api_status_var.set("API key format appears invalid")
+        # Update status to show validation in progress
+        self.api_status_var.set("Validating API key...")
+        
+        # Disable the validate button during validation
+        self.validate_button.config(state='disabled')
+        
+        # Run validation in a separate thread to avoid blocking the UI
+        def validate_thread():
+            try:
+                # Create API client and validate
+                client = NexusModsClient(api_key)
+                user_info = client.validate_api_key()
+                
+                # Get rate limit info
+                rate_limits = client.get_rate_limit_status()
+                
+                # Update UI on main thread
+                self.dialog.after(0, self._update_validation_success, user_info, rate_limits)
+                
+            except NexusAPIError as e:
+                # Update UI on main thread
+                self.dialog.after(0, self._update_validation_error, str(e))
+                
+            except Exception as e:
+                # Update UI on main thread
+                self.dialog.after(0, self._update_validation_error, f"Unexpected error: {e}")
+        
+        # Start validation thread
+        thread = threading.Thread(target=validate_thread, daemon=True)
+        thread.start()
+    
+    def _update_validation_success(self, user_info, rate_limits):
+        """Update UI after successful API validation"""
+        try:
+            username = user_info.get('name', 'Unknown User')
+            user_id = user_info.get('user_id', 'N/A')
+            is_premium = user_info.get('is_premium', False)
+            premium_text = " (Premium)" if is_premium else " (Free)"
+            
+            success_message = f"✓ Valid API key for {username}{premium_text}"
+            self.api_status_var.set(success_message)
+            
+            # Save user info to config if available
+            if self.config_manager:
+                try:
+                    self.config_manager.set_setting('api_user_name', username)
+                    self.config_manager.set_setting('api_user_id', user_id)
+                    self.config_manager.set_setting('api_is_premium', is_premium)
+                except Exception as e:
+                    logger.error(f"Failed to save API user info: {e}")
+            
+            # Update rate limit information
+            self._update_rate_limits(rate_limits)
+            
+            # Show rate limit frame
+            self.rate_limit_frame.pack(fill=X, padx=10, pady=(0, 10))
+            
+            logger.info(f"API key validated successfully for user: {username} (ID: {user_id})")
+            
+        except Exception as e:
+            logger.error(f"Error processing validation success: {e}")
+            self.api_status_var.set("✓ API key is valid")
+        
+        # Re-enable the validate button
+        self.validate_button.config(state='normal')
+    
+    def _update_validation_error(self, error_message):
+        """Update UI after failed API validation"""
+        self.api_status_var.set(f"✗ {error_message}")
+        logger.error(f"API key validation failed: {error_message}")
+        
+        # Hide rate limit frame on error
+        self.rate_limit_frame.pack_forget()
+        
+        # Re-enable the validate button
+        self.validate_button.config(state='normal')
+    
+    def _update_rate_limits(self, rate_limits):
+        """Update rate limit display"""
+        try:
+            daily_remaining = rate_limits.get('daily_remaining')
+            hourly_remaining = rate_limits.get('hourly_remaining')
+            
+            if daily_remaining is not None or hourly_remaining is not None:
+                rate_text = "Current rate limits:\n"
+                
+                if daily_remaining is not None:
+                    rate_text += f"Daily requests remaining: {daily_remaining:,}\n"
+                
+                if hourly_remaining is not None:
+                    rate_text += f"Hourly requests remaining: {hourly_remaining:,}\n"
+                
+                # Add status indicator
+                if daily_remaining is not None:
+                    if daily_remaining > 1000:
+                        rate_text += "Status: Excellent"
+                    elif daily_remaining > 500:
+                        rate_text += "Status: Good"
+                    elif daily_remaining > 100:
+                        rate_text += "Status: Caution - Consider limiting requests"
+                    else:
+                        rate_text += "Status: Warning - Very few requests remaining"
+                
+                self.rate_limit_var.set(rate_text.strip())
+            else:
+                self.rate_limit_var.set("Rate limit information not available")
+                
+        except Exception as e:
+            logger.error(f"Error updating rate limits: {e}")
+            self.rate_limit_var.set("Error retrieving rate limit information")
+    
+    def show_rate_limits(self):
+        """Show current rate limits for the configured API key"""
+        api_key = self.api_key_var.get().strip()
+        if not api_key:
+            messagebox.showwarning("No API Key", "Please enter and validate an API key first.")
+            return
+        
+        # Show rate limits in a separate thread
+        def get_rate_limits():
+            try:
+                client = NexusModsClient(api_key)
+                # Make a lightweight request to get rate limit headers
+                client.validate_api_key()
+                rate_limits = client.get_rate_limit_status()
+                
+                # Update UI on main thread
+                self.dialog.after(0, lambda: self._show_rate_limits_dialog(rate_limits))
+                
+            except Exception as e:
+                self.dialog.after(0, lambda: messagebox.showerror(
+                    "Rate Limit Error", 
+                    f"Could not retrieve rate limits:\n{e}"
+                ))
+        
+        thread = threading.Thread(target=get_rate_limits, daemon=True)
+        thread.start()
+    
+    def _show_rate_limits_dialog(self, rate_limits):
+        """Show rate limits in a message dialog"""
+        daily_remaining = rate_limits.get('daily_remaining', 'Unknown')
+        hourly_remaining = rate_limits.get('hourly_remaining', 'Unknown')
+        daily_reset = rate_limits.get('daily_reset', 'Unknown')
+        hourly_reset = rate_limits.get('hourly_reset', 'Unknown')
+        
+        message = f"""Current Nexus Mods API Rate Limits:
+
+Daily Limit:
+• Requests remaining: {daily_remaining}
+• Resets at: {daily_reset}
+
+Hourly Limit:
+• Requests remaining: {hourly_remaining}  
+• Resets at: {hourly_reset}
+
+Note: Rate limits are shared across all applications using your API key."""
+        
+        messagebox.showinfo("API Rate Limits", message)
     
     def browse_game_path(self):
         """Browse for game directory"""
