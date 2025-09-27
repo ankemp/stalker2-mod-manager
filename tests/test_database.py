@@ -13,7 +13,7 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.models import DatabaseManager, ConfigManager, ModManager, ArchiveManager, DeploymentManager
 

@@ -1,0 +1,752 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "title": "Nexus Mods Public API",
+        "description": "\n<p>The Nexus Mods Public API allows third-party applications to access the Nexus Mods database, provided they are supplying a valid API Key for a user. Users can view their own API Keys by visiting <a href=\"https://www.nexusmods.com/users/myaccount?tab=api%20access\">https://www.nexusmods.com/users/myaccount?tab=api%20access</a>.</p>\n\n<p>Applications can also implement integrations without the user having to manage their own keys by using the Nexus Mods Single Sign-On (SSO). Documentation and a simple demo for the SSO can be found at <a href=\"https://github.com/Nexus-Mods/sso-integration-demo\">https://github.com/Nexus-Mods/sso-integration-demo</a>.</p>\n\n## Authentication\nIf you try accessing the API, you might receive the following error: <code>Please provide an API Key with your request</code>.\n\nThis is because all requests to the API require an API key to be sent as a header. The header <code>apikey</code> is used for this purpose, setting this to a valid API Key will authenticate correctly - this can be tested on the swaggerhub documentation using the \"Authorise\" button below and providing one of your personal API Keys.\n\n>Note: NEVER share your personal API keys with any other user, or include it as part of your own software.\n\n## Rate Limiting\n\nWe utilise user-based rate limiting on our API, so refreshing your API key (this can be done on the API Access page) will not allow you to exceed the rate limits. Our limits are as follows:\n\n> 2,500 requests within 24 hours and once this limit has been exceeded by a user they are then restricted to 100 requests per hour.\n\nThe API will return headers to inform the client of the remaining requests and remaining time:\n\n```\nX-RL-Hourly-Limit →100\nX-RL-Hourly-Remaining →96\nX-RL-Hourly-Reset →2019-02-01T12:00:00+00:00\nX-RL-Daily-Limit →2500\nX-RL-Daily-Remaining →2488\nX-RL-Daily-Reset →2019-02-02 00:00:00 +0000\n```\n\nOnce a client's limits are reached, the API will return a HTTP 429 code, along with the headers above, allowing the client to determine which limit has been breached.\n\n> A 429 status code can also be served by nginx if the client sends more than 30 requests per second. Nginx will however allow bursts over this for very short periods of time.\n\n*Some routes don't count towards your hourly limits - these are listed below:*\n```\n/v1/users/validate.json\n```\n\n## User Agent\n\nApplications should send a valid user agent string identifying the application/library they are using and system information. This allows us to collect statistics and aides with debugging potential problems.\n\nE.g. Vortex sends the following user agent string. This identifies the library and node version, along with the OS information. `NexusApiClient/0.7.3 (Windows_NT 10.0.17134; x64) Node/8.9.3`",
+        "version": "1.0",
+        "x-copyright": "Black Tree Gaming Ltd"
+    },
+    "basePath": "/",
+    "securityDefinitions": {
+        "accountId": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "apikey",
+            "description": "All requests must include the `apikey` header containing your account ID."
+        }
+    },
+    "security": [
+        {
+            "accountId": []
+        }
+    ],
+    "consumes": [
+        "application/x-www-form-urlencoded",
+        "multipart/form-data"
+    ],
+    "paths": {
+        "/v1/games/{game_domain_name}/mods/updated.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_updates.json",
+                "summary": "Returns updated mods for a game in the given period",
+                "parameters": [
+                    {
+                        "name": "period",
+                        "description": "The only accepted periods are 1d, 1w and 1m (1 day, 1 week and 1 month)",
+                        "type": "string",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ok"
+                    }
+                },
+                "description": "\n<p>Returns a list of mods that have been updated in a given period, with timestamps of their last update. Cached for 5 minutes.</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{mod_id}/changelogs.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_mod_id_changelogs.json",
+                "summary": "Returns all changelogs for a mod",
+                "parameters": [
+                    {
+                        "name": "mod_id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "ok"
+                    }
+                },
+                "description": "\n<p>Returns list of changelogs for mod</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/latest_added.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_latest_added.json",
+                "summary": "Retrieve 10 latest added mods for a specified game",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Retrieve 10 latest added mods for a specified game</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/latest_updated.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "summary": "Retrieve 10 latest updated mods for a specified game",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Retrieve 10 latest updated mods for a specified game</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/trending.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_trending.json",
+                "summary": "Retrieve 10 trending mods for a specified game",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Retrieve 10 trending mods for a specified game</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{id}.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_name_mods_id.json",
+                "summary": "Retrieve specified mod, from a specified game",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    },
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Retrieve specified mod, from a specified game. Cached for 5 minutes.</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json": {
+            "get": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_name_mods_md5_search_md5_hash.json",
+                "summary": "",
+                "parameters": [
+                    {
+                        "name": "md5_hash",
+                        "type": "string",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    },
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Looks up a file MD5 file hash</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{id}/endorse.json": {
+            "post": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "post_v1_games_game_domain_name_mods_id_endorse.json",
+                "summary": "Endorse a mod",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    },
+                    {
+                        "name": "version",
+                        "type": "string",
+                        "in": "formData",
+                        "description": "Mod Version"
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid Request"
+                    },
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Endorse a mod</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{id}/abstain.json": {
+            "post": {
+                "tags": [
+                    "Mods"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "post_v1_games_game_domain_name_mods_id_abstain.json",
+                "summary": "Abstain from endorsing a mod",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    },
+                    {
+                        "name": "version",
+                        "type": "string",
+                        "in": "formData",
+                        "description": "Mod Version"
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid Request"
+                    },
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Abstain from endorsing a mod</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{mod_id}/files.json": {
+            "get": {
+                "tags": [
+                    "Mod Files"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_mod_id_files.json",
+                "summary": "List files for specified mod",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "description": "Game Domain E.g. 'skyrim'",
+                        "type": "string",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "name": "mod_id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    },
+                    {
+                        "name": "category",
+                        "type": "string",
+                        "description": "Filter File Category. Case insensitive. Comma seperated list of categories. Can be: main, update, optional, old_version or miscellaneous",
+                        "in": "query",
+                        "required": false
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing Resource"
+                    }
+                },
+                "description": "\n<p>Lists all files for a specific mod</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{mod_id}/files/{file_id}.json": {
+            "get": {
+                "tags": [
+                    "Mod Files"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_mod_id_files_file_id.json",
+                "summary": "View a specified mod file",
+                "parameters": [
+                    {
+                        "name": "file_id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "File ID"
+                    },
+                    {
+                        "name": "game_domain_name",
+                        "type": "string",
+                        "in": "path",
+                        "required": true,
+                        "description": "Game Domain Name E.g. skyrim"
+                    },
+                    {
+                        "name": "mod_id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing Resource"
+                    }
+                },
+                "description": "\n<p>View a specified mod file, using a specified game and mod</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}/mods/{mod_id}/files/{id}/download_link.json": {
+            "get": {
+                "tags": [
+                    "Mod Files"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain_mods_mod_id_files_id_download_link.json",
+                "summary": "Generate download link for mod file",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "type": "string",
+                        "in": "path",
+                        "required": true,
+                        "description": "Game Domain Name E.g. skyrim"
+                    },
+                    {
+                        "name": "id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "File ID"
+                    },
+                    {
+                        "name": "mod_id",
+                        "type": "number",
+                        "in": "path",
+                        "required": true,
+                        "description": "Mod ID"
+                    },
+                    {
+                        "name": "key",
+                        "type": "string",
+                        "in": "query",
+                        "description": "Key provided by Nexus Mods Website"
+                    },
+                    {
+                        "name": "expires",
+                        "type": "number",
+                        "in": "query",
+                        "description": "Expiry of the key"
+                    }
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Provided key and expire time isn't correct for this user/file."
+                    },
+                    "403": {
+                        "description": "You don't have permission to get download links from the API without visting nexusmods.com - this is for premium users only."
+                    },
+                    "404": {
+                        "description": "File not found."
+                    },
+                    "410": {
+                        "description": "This link has expired - please visit the mod page again to get a new link."
+                    }
+                },
+                "description": "\n<p>Generate download link for mod file. For premium users, will return array of download links with their prefered download location in the first element.</p><br/>\n\n<p>NOTE: Non-premium members must provide the key and expiry from the .nxm link provided by the website. It is recommended for clients to extract them from the nxm link before sending this request. This ensures that all non-premium members must access the website to download through the API.</p>\n"
+            }
+        },
+        "/v1/games.json": {
+            "get": {
+                "tags": [
+                    "Games"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games.json",
+                "summary": "Return all games",
+                "parameters": [
+                    {
+                        "name": "include_unapproved",
+                        "type": "boolean",
+                        "in": "query",
+                        "description": "Whether to include unapproved games or not"
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Returns a list of all games. Optionally can also return unapproved\ngames.</p>\n"
+            }
+        },
+        "/v1/games/{game_domain_name}.json": {
+            "get": {
+                "tags": [
+                    "Games"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_games_game_domain.json",
+                "summary": "Return information about a specified game.",
+                "parameters": [
+                    {
+                        "name": "game_domain_name",
+                        "type": "string",
+                        "in": "path",
+                        "required": true,
+                        "description": "Game Domain Name E.g. skyrim"
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Returns specified game, along with download count, file count and\ncategories.</p>\n"
+            }
+        },
+        "/v1/users/validate.json": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "post_v1_users_validate.json",
+                "summary": "Checks an API key is valid and returns the user's details",
+                "parameters": [],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    }
+                },
+                "description": "\n<p>Checks an API key is valid and returns the user&#39;s details.</p>\n"
+            }
+        },
+        "/v1/user/tracked_mods.json": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_user_tracked_mods.json",
+                "summary": "Retrieve all tracked mods for the current user",
+                "parameters": [],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    }
+                },
+                "description": "\n<p>Fetch all the mods being tracked by the current user</p>\n"
+            },
+            "post": {
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "post_v1_user_tracked_mods.json",
+                "summary": "Track this mod for this user",
+                "parameters": [
+                    {
+                        "name": "domain_name",
+                        "type": "string",
+                        "in": "query",
+                        "required": true,
+                        "description": "Game Domain Name E.g. skyrim"
+                    },
+                    {
+                        "name": "mod_id",
+                        "type": "number",
+                        "in": "formData",
+                        "required": true,
+                        "description": "The ID of the Mod to track"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "User succesfully tracked mod"
+                    },
+                    "200": {
+                        "description": "User already tracking mod"
+                    }
+                },
+                "description": "\n<p>Track this mod with the current user</p>\n"
+            },
+            "delete": {
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "delete_v1_user_tracked_mods.json",
+                "summary": "Stop tracking this mod for this user",
+                "parameters": [
+                    {
+                        "name": "domain_name",
+                        "type": "string",
+                        "in": "query",
+                        "required": true,
+                        "description": "Game Domain Name E.g. skyrim"
+                    },
+                    {
+                        "name": "mod_id",
+                        "type": "number",
+                        "in": "formData",
+                        "required": true,
+                        "description": "The ID of the Mod to stop tracking"
+                    }
+                ],
+                "responses": {
+                    "404": {
+                        "description": "Missing"
+                    }
+                },
+                "description": "\n<p>Stop tracking this mod with the current user</p>\n"
+            }
+        },
+        "/v1/user/endorsements.json": {
+            "get": {
+                "tags": [
+                    "User"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_user_endorsements.json",
+                "summary": "Return all endorsements for the provided API key",
+                "responses": {
+                    "200": {
+                        "description": "Success"
+                    },
+                    "404": {
+                        "description": "Missing"
+                    },
+                    "422": {
+                        "description": "Could not save the entity."
+                    },
+                    "401": {
+                        "description": "Valid API key not provided"
+                    }
+                },
+                "description": "\n<p>Returns a list of all endorsements for the current user.</p>\n"
+            }
+        },
+        "/v1/colourschemes.json": {
+            "get": {
+                "tags": [
+                    "Colour Schemes"
+                ],
+                "consumes": [
+                    "application/x-www-form-urlencoded",
+                    "multipart/form-data"
+                ],
+                "operationId": "get_v1_colourschemes.json",
+                "summary": "Returns all colour schemes",
+                "parameters": [],
+                "responses": {
+                    "200": {
+                        "description": "ok"
+                    }
+                },
+                "description": "\n<p>Returns list of all colour schemes, including the primary, secondary and\n&#39;darker&#39; colours.</p>\n"
+            }
+        }
+    },
+    "definitions": {},
+    "tags": [
+        {
+            "name": "Mods",
+            "description": "Mod specific routes (E.g. retreiving latest mods, endorsing a mod)"
+        },
+        {
+            "name": "Mod Files",
+            "description": "File specific routes (E.g. retreiving file information, retreiving download link)"
+        },
+        {
+            "name": "Games",
+            "description": "Retreive game information"
+        },
+        {
+            "name": "User",
+            "description": "Resources specific to the current user assigned to this API Key"
+        },
+        {
+            "name": "Colour Schemes",
+            "description": "Retreive information regarding colour-specific themes for games"
+        }
+    ],
+    "host": "api.nexusmods.com"
+}

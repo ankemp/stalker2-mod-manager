@@ -3,7 +3,11 @@ Simple test to verify UI components can be instantiated without errors
 """
 
 import sys
+import os
 import traceback
+
+# Add project root to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def test_imports():
     """Test that all modules can be imported"""

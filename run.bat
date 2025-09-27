@@ -19,21 +19,35 @@ call venv\Scripts\activate.bat
 REM Check for command line arguments
 if "%1"=="db-info" (
     echo Showing database information...
-    python show_db_info.py
+    python scripts\show_db_info.py
     goto :end
 )
 
 if "%1"=="db-reset" (
     echo Resetting database...
-    python reset_database.py
+    python scripts\reset_database.py
     goto :end
 )
 
 if "%1"=="test" (
     echo Running tests...
-    python test_ui.py
+    python tests\test_ui.py
     echo.
-    python test_database.py
+    python tests\test_database.py
+    echo.
+    python tests\test_nexus_api.py
+    goto :end
+)
+
+if "%1"=="demo" (
+    echo Running API demo...
+    python scripts\demo_nexus_api.py
+    goto :end
+)
+
+if "%1"=="validate" (
+    echo Running API compliance validation...
+    python scripts\validate_api_compliance.py
     goto :end
 )
 
@@ -49,5 +63,7 @@ echo Additional commands:
 echo   run.bat db-info    - Show database information
 echo   run.bat db-reset   - Reset database
 echo   run.bat test       - Run test suite
+echo   run.bat demo       - Run API demo
+echo   run.bat validate   - Validate API compliance
 echo.
 pause

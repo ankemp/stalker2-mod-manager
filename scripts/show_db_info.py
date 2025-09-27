@@ -4,7 +4,7 @@ Show database information and statistics
 
 import sys
 import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from database.models import DatabaseManager, ConfigManager, ModManager, ArchiveManager, DeploymentManager
 import config as app_config

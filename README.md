@@ -175,21 +175,34 @@ The application stores data in AppData following Windows conventions:
 - **Log Files**: `%LOCALAPPDATA%\Stalker2ModManager\logs\`
 - **Backups**: `%LOCALAPPDATA%\Stalker2ModManager\backups\`
 
-### Database Operations
+### Usage Commands
 
 ```bash
-# View database information and statistics
-run.bat db-info
+# Launch the application
+python main.py
 # or
-python show_db_info.py
+run.bat
 
-# Reset database (removes all data)
-run.bat db-reset
+# Run comprehensive test suite
+run.bat test
 # or
-python reset_database.py
+python tests/run_all_tests.py
 
-# Run database tests
-python test_database.py
+# Database utilities
+run.bat db-info    # Show database information  
+run.bat db-reset   # Reset database
+
+# Development tools
+run.bat demo       # Run API demo
+run.bat validate   # Validate API compliance
+
+# Individual test suites
+python tests/test_ui.py
+python tests/test_database.py
+python tests/test_nexus_api.py
+
+# Setup development environment  
+scripts/setup.bat
 ```
 
 ### Database Schema
@@ -208,6 +221,70 @@ The database includes the following tables:
 - **Foreign Key Constraints**: Ensures data integrity with cascading deletes
 - **Transaction Safety**: All operations are wrapped in transactions
 - **Error Handling**: Comprehensive error handling with logging
+
+## Nexus Mods API Integration
+
+The application includes a complete Nexus Mods API client for downloading and managing mods.
+
+### API Features
+
+- **Authentication**: API key validation and user information retrieval
+- **Mod Discovery**: Search and retrieve mod information by ID
+- **File Management**: List mod files, get download links, and download files
+- **URL Parsing**: Parse Nexus Mods URLs to extract mod and file IDs
+- **Rate Limiting**: Automatic rate limiting and retry logic
+- **Progress Tracking**: Download progress callbacks for UI integration
+- **Error Handling**: Comprehensive error handling for network and API issues
+
+### API Usage
+
+```python
+from api.nexus_api import NexusModsClient, ModDownloader
+
+# Initialize client with API key
+client = NexusModsClient("your_api_key_here")
+
+# Validate API key
+user_info = client.validate_api_key()
+print(f"Hello, {user_info['name']}!")
+
+# Get mod information
+mod_info = client.get_mod_info(123)
+print(f"Mod: {mod_info['name']} v{mod_info['version']}")
+
+# Download a mod
+downloader = ModDownloader(client, "./downloads")
+file_path = downloader.download_mod(123, progress_callback=my_progress_callback)
+```
+
+### URL Parsing
+
+```python
+# Parse Nexus Mods URLs
+url = "https://www.nexusmods.com/stalker2heartofchornobyl/mods/123"
+parsed = NexusModsClient.parse_nexus_url(url)
+print(f"Mod ID: {parsed['mod_id']}")
+
+# Validate URLs
+is_valid = NexusModsClient.is_valid_nexus_url(url)
+```
+
+### Testing & Demo
+
+```bash
+# Run API tests
+run.bat test
+# or
+python tests/test_nexus_api.py
+
+# Run API demo
+run.bat demo
+# or
+python scripts/demo_nexus_api.py
+
+# Validate API compliance with Swagger spec
+python scripts/validate_api_compliance.py
+```
 
 ## Development Status
 
@@ -231,6 +308,21 @@ The database includes the following tables:
 - ✅ Comprehensive error handling and logging
 - ✅ Database statistics and information tools
 
+**Nexus Mods API Integration:**
+- ✅ Complete API client implementation (Swagger compliant)
+- ✅ API key validation and user authentication
+- ✅ Mod information retrieval
+- ✅ File listing and metadata with category filtering
+- ✅ Download link generation (premium/non-premium support)
+- ✅ File downloading with progress tracking
+- ✅ URL parsing and validation
+- ✅ Advanced rate limiting with header parsing
+- ✅ Comprehensive error handling
+- ✅ Update checking functionality
+- ✅ Additional endpoints (trending, latest, changelogs, tracking)
+- ✅ System-aware User-Agent generation
+- ✅ Comprehensive test suite (22 tests)
+
 **Integration:**
 - ✅ UI connected to database for real mod management
 - ✅ Enable/disable mods with database persistence
@@ -238,9 +330,9 @@ The database includes the following tables:
 - ✅ Sample data loading for demonstration
 
 **Still to implement:**
-- Nexus Mods API integration (authentication, downloading)
+- Integration of Nexus API with UI (add mod from URL functionality)
 - File extraction and deployment to game directory
-- Update checking and notifications
+- Update checking and notifications in UI
 - Archive file management and validation
 - Conflict resolution for overlapping files
 - Game directory validation
