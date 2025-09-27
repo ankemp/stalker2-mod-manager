@@ -214,8 +214,37 @@ class AddModDialog(BaseDialog):
 class SettingsDialog(BaseDialog):
     """Dialog for application settings"""
     
-    def __init__(self, parent):
+    def __init__(self, parent, config_manager=None):
+        self.config_manager = config_manager
         super().__init__(parent, "Settings", (600, 400))
+        
+        # Load current settings if config manager is available
+        if self.config_manager:
+            self.load_current_settings()
+    
+    def load_current_settings(self):
+        """Load current settings from config manager"""
+        try:
+            self.auto_check_updates_var.set(self.config_manager.get_auto_check_updates())
+            self.update_interval_var.set(self.config_manager.get_update_interval())
+            self.confirm_actions_var.set(self.config_manager.get_confirm_actions())
+            self.show_notifications_var.set(self.config_manager.get_show_notifications())
+            
+            api_key = self.config_manager.get_api_key()
+            if api_key:
+                self.api_key_var.set(api_key)
+                self.api_status_var.set("API key configured")
+            
+            game_path = self.config_manager.get_game_path()
+            if game_path:
+                self.game_path_var.set(game_path)
+            
+            mods_path = self.config_manager.get_mods_directory()
+            if mods_path:
+                self.mods_path_var.set(mods_path)
+                
+        except Exception as e:
+            print(f"Error loading settings: {e}")
     
     def setup_ui(self):
         """Setup the settings dialog UI"""

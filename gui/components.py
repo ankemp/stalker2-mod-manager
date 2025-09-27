@@ -11,13 +11,47 @@ from ttkbootstrap.constants import *
 class ModListFrame:
     """Frame containing the list of installed mods"""
     
-    def __init__(self, parent, selection_callback):
+class ModListFrame:
+    """Frame containing the list of installed mods"""
+    
+    def __init__(self, parent, selection_callback, mod_manager=None):
         self.parent = parent
         self.selection_callback = selection_callback
+        self.mod_manager = mod_manager
         self.selected_mod = None
         
         self.setup_ui()
-        self.load_sample_data()  # TODO: Replace with actual data loading
+        self.load_mod_data()
+    
+    def load_mod_data(self):
+        """Load mod data from database or use sample data"""
+        if self.mod_manager:
+            try:
+                # Load real data from database
+                all_mods = self.mod_manager.get_all_mods()
+                self.mod_data = {mod["id"]: mod for mod in all_mods}
+                
+                # Convert database format to display format
+                for mod_id, mod in self.mod_data.items():
+                    mod["name"] = mod["mod_name"]  # Add name alias
+                    mod["version"] = mod.get("latest_version", "Unknown")  # Add version alias
+                    mod["last_updated"] = mod.get("updated_at", mod.get("created_at", "Unknown"))[:10] if mod.get("updated_at") else "Unknown"
+                    
+                    # Determine status
+                    if mod["enabled"]:
+                        mod["status"] = "enabled"
+                    else:
+                        mod["status"] = "disabled"
+                
+                print(f"Loaded {len(self.mod_data)} mods from database")
+                
+            except Exception as e:
+                print(f"Error loading mods from database: {e}")
+                self.load_sample_data()  # Fallback to sample data
+        else:
+            self.load_sample_data()  # Use sample data if no mod_manager
+        
+        self.refresh_list()
     
     def setup_ui(self):
         """Setup the mod list UI"""
@@ -178,8 +212,9 @@ class ModListFrame:
         # Insert mods into tree
         for mod in filtered_mods:
             status_text = mod["status"]
-            if mod.get("latest_version") and mod["version"] != mod["latest_version"]:
-                status_text = f"outdated ({mod['latest_version']} available)"
+            
+            # Check for updates available (this would need archive manager integration)
+            # For now, just show the basic status
             
             # Determine tag based on status
             tags = []
@@ -188,14 +223,16 @@ class ModListFrame:
             else:
                 tags.append("disabled")
             
-            if mod.get("latest_version") and mod["version"] != mod["latest_version"]:
-                tags.append("outdated")
+            # Note: Update checking would require archive manager integration
+            # if mod.get("latest_version") and mod["version"] != mod["latest_version"]:
+            #     tags.append("outdated")
+            #     status_text = f"outdated ({mod['latest_version']} available)"
             
             item_id = self.tree.insert(
                 "",
                 "end",
                 text=mod["name"],
-                values=(mod["version"], status_text, mod["last_updated"]),
+                values=(mod.get("version", "Unknown"), status_text, mod.get("last_updated", "Unknown")),
                 tags=tags
             )
             
@@ -267,10 +304,23 @@ class ModListFrame:
     
     def update_mod_status(self, mod_id, enabled):
         """Update the enabled status of a mod"""
-        if mod_id in self.mod_data:
-            self.mod_data[mod_id]["enabled"] = enabled
-            self.mod_data[mod_id]["status"] = "enabled" if enabled else "disabled"
-            self.refresh_list()
+        if self.mod_manager:
+            try:
+                self.mod_manager.set_mod_enabled(mod_id, enabled)
+                # Reload data to reflect changes
+                self.load_mod_data()
+                return True
+            except Exception as e:
+                print(f"Error updating mod status: {e}")
+                return False
+        else:
+            # Fallback to local data update
+            if mod_id in self.mod_data:
+                self.mod_data[mod_id]["enabled"] = enabled
+                self.mod_data[mod_id]["status"] = "enabled" if enabled else "disabled"
+                self.refresh_list()
+                return True
+            return False
 
 
 class ModDetailsFrame:

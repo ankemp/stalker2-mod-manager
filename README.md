@@ -156,23 +156,95 @@ The application uses SQLite to store:
 
 See `docs/application-spec.md` for detailed schema information.
 
+## Database Management
+
+The application uses SQLite to store all mod data and configuration. The database is automatically created on first run and follows Windows best practices for data storage.
+
+### Data Storage Locations (Windows Best Practice)
+
+The application stores data in AppData following Windows conventions:
+
+**User Data (Roaming AppData)** - *Syncs across machines*:
+- **Database**: `%APPDATA%\Stalker2ModManager\database.db`
+- **Downloaded Mods**: `%APPDATA%\Stalker2ModManager\mods\`
+- **Configuration**: `%APPDATA%\Stalker2ModManager\`
+
+**Local Data (Local AppData)** - *Machine-specific*:
+- **Cache Files**: `%LOCALAPPDATA%\Stalker2ModManager\cache\`
+- **Temporary Files**: `%LOCALAPPDATA%\Stalker2ModManager\temp\`
+- **Log Files**: `%LOCALAPPDATA%\Stalker2ModManager\logs\`
+- **Backups**: `%LOCALAPPDATA%\Stalker2ModManager\backups\`
+
+### Database Operations
+
+```bash
+# View database information and statistics
+run.bat db-info
+# or
+python show_db_info.py
+
+# Reset database (removes all data)
+run.bat db-reset
+# or
+python reset_database.py
+
+# Run database tests
+python test_database.py
+```
+
+### Database Schema
+
+The database includes the following tables:
+
+- **`config`**: Application settings (API keys, paths, preferences)
+- **`mods`**: Mod metadata (name, author, version, enabled status)
+- **`mod_archives`**: Downloaded mod archives and versions
+- **`deployment_selections`**: Which files from each mod to deploy
+- **`deployed_files`**: Track files deployed to game directory
+
+### Data Safety
+
+- **Automatic Backups**: Database is backed up before destructive operations
+- **Foreign Key Constraints**: Ensures data integrity with cascading deletes
+- **Transaction Safety**: All operations are wrapped in transactions
+- **Error Handling**: Comprehensive error handling with logging
+
 ## Development Status
 
-This is the initial UI implementation with placeholder functionality. The interface is fully built out with:
+### ✅ **Completed Features**
 
-- ✅ Main window with mod list and details panels
-- ✅ Add mod dialogs (URL and file)
-- ✅ Settings dialog with tabs for different options
+**User Interface:**
+- ✅ Complete main window with mod list and details panels
+- ✅ Add mod dialogs (URL and file)  
+- ✅ Settings dialog with configuration tabs
 - ✅ File deployment selection dialog
 - ✅ Status bar and progress tracking
 - ✅ Keyboard shortcuts and menu system
 
+**Database System:**
+- ✅ Complete SQLite database implementation
+- ✅ Configuration management
+- ✅ Mod records and metadata
+- ✅ Archive version tracking  
+- ✅ File deployment tracking
+- ✅ Foreign key constraints and data integrity
+- ✅ Comprehensive error handling and logging
+- ✅ Database statistics and information tools
+
+**Integration:**
+- ✅ UI connected to database for real mod management
+- ✅ Enable/disable mods with database persistence
+- ✅ Settings loading and saving
+- ✅ Sample data loading for demonstration
+
 **Still to implement:**
-- Database operations
-- Nexus Mods API integration
-- File extraction and deployment
-- Update checking
-- Archive management
+- Nexus Mods API integration (authentication, downloading)
+- File extraction and deployment to game directory
+- Update checking and notifications
+- Archive file management and validation
+- Conflict resolution for overlapping files
+- Game directory validation
+- Backup and restore functionality
 
 ## Contributing
 

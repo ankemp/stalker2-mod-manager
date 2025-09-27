@@ -138,8 +138,11 @@ cython_debug/
 .vscode/
 
 # Application specific files
-stalker_mod_manager.db
+database.db
 mods/
+cache/
+temp/
+logs/
 backups/
 
 # OS specific

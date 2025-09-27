@@ -15,14 +15,123 @@ class MainWindow:
     
     def __init__(self, root):
         self.root = root
+        
+        # Initialize database components
+        from database.models import DatabaseManager, ConfigManager, ModManager, ArchiveManager, DeploymentManager
+        import config as app_config
+        
+        # Ensure app directories exist
+        app_config.ensure_directories()
+        
+        # Initialize database
+        self.db_manager = DatabaseManager(app_config.DEFAULT_DATABASE_PATH)
+        self.config_manager = ConfigManager(self.db_manager)
+        self.mod_manager = ModManager(self.db_manager)
+        self.archive_manager = ArchiveManager(self.db_manager)
+        self.deployment_manager = DeploymentManager(self.db_manager)
+        
+        # Load some sample data if database is empty
+        self.load_initial_data()
+        
         self.setup_menu()
         self.setup_main_ui()
         self.setup_bindings()
-        
-        # TODO: Initialize database connection
-        # TODO: Load existing mods from database
-        # TODO: Setup API key validation
-        # TODO: Start update checker thread
+    
+    def load_initial_data(self):
+        """Load initial sample data if database is empty"""
+        try:
+            # Check if we already have mods
+            existing_mods = self.mod_manager.get_all_mods()
+            if len(existing_mods) > 0:
+                return  # Already have data
+            
+            # Add some sample mods for demonstration
+            sample_mods = [
+                {
+                    "nexus_mod_id": 123,
+                    "mod_name": "Enhanced Graphics Pack",
+                    "author": "GraphicsGuru",
+                    "summary": "Improves textures and lighting effects throughout the game",
+                    "latest_version": "2.1.0",
+                    "enabled": True
+                },
+                {
+                    "nexus_mod_id": 456,
+                    "mod_name": "Weapon Rebalance Mod",
+                    "author": "BalanceMaster",
+                    "summary": "Rebalances weapon damage and accuracy for better gameplay",
+                    "latest_version": "1.5.2",
+                    "enabled": True
+                },
+                {
+                    "nexus_mod_id": 789,
+                    "mod_name": "UI Overhaul",
+                    "author": "UIDesigner",
+                    "summary": "Complete user interface redesign with modern elements",
+                    "latest_version": "3.0.1",
+                    "enabled": False
+                },
+                {
+                    "nexus_mod_id": 101,
+                    "mod_name": "Sound Enhancement Pack",
+                    "author": "AudioEngineer",
+                    "summary": "Enhanced audio effects and ambient sounds for immersion",
+                    "latest_version": "1.3.0",  # This will be newer than archive version
+                    "enabled": True
+                },
+                {
+                    "mod_name": "Local Custom Mod",
+                    "author": "Unknown",
+                    "summary": "Custom mod installed from local file",
+                    "latest_version": "1.0.0",
+                    "enabled": True
+                }
+            ]
+            
+            for mod_data in sample_mods:
+                mod_id = self.mod_manager.add_mod(mod_data)
+                
+                # Add sample archive for each mod
+                archive_version = mod_data.get("latest_version", "1.0.0")
+                
+                # For the Sound Enhancement Pack, add an older version to show update available
+                if mod_data.get("nexus_mod_id") == 101:
+                    archive_version = "1.2.0"  # Older than latest_version
+                
+                self.archive_manager.add_archive(
+                    mod_id=mod_id,
+                    version=archive_version,
+                    file_name=f"{mod_data['mod_name'].lower().replace(' ', '_')}_v{archive_version}.zip",
+                    file_size=1024000 + (mod_id * 100000)
+                )
+                
+                # Add sample deployment selections for enabled mods
+                if mod_data.get("enabled"):
+                    sample_files = [
+                        "Data/Scripts/mod_script.lua",
+                        "Data/Textures/texture1.dds",
+                        "Data/Config/settings.cfg"
+                    ]
+                    self.deployment_manager.save_deployment_selections(mod_id, sample_files)
+                    
+                    # Add deployed files records
+                    for file_path in sample_files:
+                        deployed_path = f"C:/Game/{file_path}"
+                        backup_path = f"C:/Backup/{file_path}.bak" if file_path.endswith('.cfg') else None
+                        self.deployment_manager.add_deployed_file(mod_id, deployed_path, backup_path)
+            
+            # Set some basic configuration
+            self.config_manager.set_game_path("C:/Program Files (x86)/Steam/steamapps/common/S.T.A.L.K.E.R. 2- Heart of Chornobyl")
+            self.config_manager.set_mods_directory(app_config.DEFAULT_MODS_DIR)
+            self.config_manager.set_auto_check_updates(True)
+            self.config_manager.set_update_interval(24)
+            
+            print("Loaded sample data into database")
+            
+        except Exception as e:
+            print(f"Error loading initial data: {e}")
+            import traceback
+            traceback.print_exc()
     
     def setup_menu(self):
         """Create the application menu bar"""
@@ -85,7 +194,7 @@ class MainWindow:
         paned_window.add(right_frame, weight=1)
         
         # Create mod list frame
-        self.mod_list_frame = ModListFrame(left_frame, self.on_mod_selected)
+        self.mod_list_frame = ModListFrame(left_frame, self.on_mod_selected, self.mod_manager)
         
         # Create mod details frame
         self.mod_details_frame = ModDetailsFrame(right_frame, self.on_mod_action)
@@ -233,13 +342,37 @@ class MainWindow:
     
     def open_settings(self):
         """Show settings dialog"""
-        dialog = SettingsDialog(self.root)
+        from gui.dialogs import SettingsDialog
+        
+        # Create dialog with current settings
+        dialog = SettingsDialog(self.root, self.config_manager)
         result = dialog.show()
         if result:
-            # TODO: Save settings to database
-            # TODO: Validate API key if changed
-            # TODO: Update game path if changed
-            self.status_bar.set_status("Settings updated")
+            try:
+                # Save all settings to database
+                self.config_manager.set_auto_check_updates(result["auto_check_updates"])
+                self.config_manager.set_update_interval(result["update_interval"])
+                self.config_manager.set_confirm_actions(result["confirm_actions"])
+                self.config_manager.set_show_notifications(result["show_notifications"])
+                
+                if result["api_key"]:
+                    self.config_manager.set_api_key(result["api_key"])
+                
+                if result["game_path"]:
+                    self.config_manager.set_game_path(result["game_path"])
+                
+                if result["mods_path"]:
+                    self.config_manager.set_mods_directory(result["mods_path"])
+                
+                self.status_bar.set_status("Settings updated and saved")
+                
+                # Update connection status if API key was set
+                if result["api_key"]:
+                    self.status_bar.set_connection_status("API key configured")
+                
+            except Exception as e:
+                print(f"Error saving settings: {e}")
+                self.status_bar.set_status(f"Error saving settings: {e}")
     
     def enable_selected_mod(self):
         """Enable the currently selected mod"""
@@ -255,17 +388,60 @@ class MainWindow:
     
     def enable_mod(self, mod_data):
         """Enable a specific mod"""
-        # TODO: Check if mod has deployment configuration
-        # TODO: If not, show file selection dialog first
-        # TODO: Mark mod as enabled in database
-        # TODO: Update UI
-        self.status_bar.set_status(f"Enabled mod: {mod_data.get('name', 'Unknown')}")
+        try:
+            mod_id = mod_data.get("id")
+            if not mod_id:
+                return
+            
+            # Check if mod has deployment configuration
+            selections = self.deployment_manager.get_deployment_selections(mod_id)
+            if not selections:
+                # Show file selection dialog first
+                from gui.dialogs import DeploymentSelectionDialog
+                dialog = DeploymentSelectionDialog(self.root, mod_data)
+                result = dialog.show()
+                if not result:
+                    return  # User cancelled
+                
+                # Save the selections
+                self.deployment_manager.save_deployment_selections(mod_id, result["selected_files"])
+            
+            # Enable the mod in database
+            success = self.mod_list_frame.update_mod_status(mod_id, True)
+            if success:
+                self.status_bar.set_status(f"Enabled mod: {mod_data.get('name', 'Unknown')}")
+                # Refresh the details panel
+                updated_mod = self.mod_manager.get_mod(mod_id)
+                if updated_mod:
+                    self.mod_details_frame.display_mod(updated_mod)
+            else:
+                self.status_bar.set_status(f"Failed to enable mod: {mod_data.get('name', 'Unknown')}")
+                
+        except Exception as e:
+            print(f"Error enabling mod: {e}")
+            self.status_bar.set_status(f"Error enabling mod: {e}")
     
     def disable_mod(self, mod_data):
         """Disable a specific mod"""
-        # TODO: Mark mod as disabled in database
-        # TODO: Update UI
-        self.status_bar.set_status(f"Disabled mod: {mod_data.get('name', 'Unknown')}")
+        try:
+            mod_id = mod_data.get("id")
+            if not mod_id:
+                return
+            
+            # Disable the mod in database
+            success = self.mod_list_frame.update_mod_status(mod_id, False)
+            if success:
+                self.status_bar.set_status(f"Disabled mod: {mod_data.get('name', 'Unknown')}")
+                # Refresh the details panel
+                updated_mod = self.mod_manager.get_mod(mod_id)
+                if updated_mod:
+                    self.mod_details_frame.display_mod(updated_mod)
+            else:
+                self.status_bar.set_status(f"Failed to disable mod: {mod_data.get('name', 'Unknown')}")
+                
+        except Exception as e:
+            print(f"Error disabling mod: {e}")
+            self.status_bar.set_status(f"Error disabling mod: {e}")
     
     def configure_file_deployment(self):
         """Configure file deployment for selected mod"""

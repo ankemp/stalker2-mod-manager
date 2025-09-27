@@ -12,12 +12,42 @@ if not exist "venv\Scripts\activate.bat" (
     echo.
 )
 
-REM Activate virtual environment and run application
+REM Activate virtual environment for all commands
 echo Activating virtual environment...
 call venv\Scripts\activate.bat
+
+REM Check for command line arguments
+if "%1"=="db-info" (
+    echo Showing database information...
+    python show_db_info.py
+    goto :end
+)
+
+if "%1"=="db-reset" (
+    echo Resetting database...
+    python reset_database.py
+    goto :end
+)
+
+if "%1"=="test" (
+    echo Running tests...
+    python test_ui.py
+    echo.
+    python test_database.py
+    goto :end
+)
+
+REM Default: Run the application
 echo Running application...
 python main.py
 
+:end
 REM Deactivate when done
 deactivate
+echo.
+echo Additional commands:
+echo   run.bat db-info    - Show database information
+echo   run.bat db-reset   - Reset database
+echo   run.bat test       - Run test suite
+echo.
 pause
