@@ -75,8 +75,9 @@ class AddModDialog(BaseDialog):
     def __init__(self, parent, mode="url"):
         self.mode = mode  # "url" or "file"
         title = "Add Mod from URL" if mode == "url" else "Add Mod from File"
-        # Use a reasonable minsize, let dialog auto-size
-        super().__init__(parent, title, minsize=(400, 200))
+        # Use a larger minsize for file mode to accommodate extra fields
+        minsize = (400, 200) if mode == "url" else (520, 650)
+        super().__init__(parent, title, minsize=minsize)
     
     def setup_ui(self):
         """Setup the add mod dialog UI"""
@@ -167,6 +168,73 @@ class AddModDialog(BaseDialog):
         )
         info_label.pack(anchor=W, pady=(0, 10))
         
+        # Optional mod information frame
+        info_frame = ttk_bootstrap.LabelFrame(parent, text="Mod Information (Optional)")
+        info_frame.pack(fill=X, pady=(0, 10))
+        
+        # Create a grid layout for better organization
+        info_grid = ttk_bootstrap.Frame(info_frame)
+        info_grid.pack(fill=X, padx=10, pady=10)
+        
+        # Mod name (row 0)
+        ttk_bootstrap.Label(info_grid, text="Mod Name:").grid(row=0, column=0, sticky=W, pady=(0, 5))
+        self.mod_name_var = tk.StringVar()
+        mod_name_entry = ttk_bootstrap.Entry(info_grid, textvariable=self.mod_name_var, width=50)
+        mod_name_entry.grid(row=0, column=1, sticky=W+E, pady=(0, 5), padx=(10, 0))
+        
+        # Author and Version (row 1)
+        ttk_bootstrap.Label(info_grid, text="Author:").grid(row=1, column=0, sticky=W, pady=(0, 5))
+        self.author_var = tk.StringVar()
+        author_entry = ttk_bootstrap.Entry(info_grid, textvariable=self.author_var, width=25)
+        author_entry.grid(row=1, column=1, sticky=W, pady=(0, 5), padx=(10, 0))
+        
+        ttk_bootstrap.Label(info_grid, text="Version:").grid(row=1, column=2, sticky=W, pady=(0, 5), padx=(20, 0))
+        self.version_var = tk.StringVar()
+        version_entry = ttk_bootstrap.Entry(info_grid, textvariable=self.version_var, width=15)
+        version_entry.grid(row=1, column=3, sticky=W, pady=(0, 5), padx=(10, 0))
+        
+        # Configure grid weights for proper resizing
+        info_grid.columnconfigure(1, weight=1)
+        
+        # Nexus Mods URL (row 2)
+        ttk_bootstrap.Label(info_grid, text="Nexus Mods URL:").grid(row=2, column=0, sticky=W, pady=(5, 5))
+        self.nexus_url_var = tk.StringVar()
+        nexus_entry = ttk_bootstrap.Entry(info_grid, textvariable=self.nexus_url_var, width=50)
+        nexus_entry.grid(row=2, column=1, columnspan=3, sticky=W+E, pady=(5, 5), padx=(10, 0))
+        
+        # Auto-fill button (row 3)
+        auto_fill_frame = ttk_bootstrap.Frame(info_grid)
+        auto_fill_frame.grid(row=3, column=1, columnspan=3, sticky=W, pady=(0, 10), padx=(10, 0))
+        
+        ttk_bootstrap.Button(
+            auto_fill_frame,
+            text="Auto-fill from Nexus URL",
+            command=self.auto_fill_from_nexus,
+            bootstyle=INFO
+        ).pack(side=LEFT)
+        
+        ttk_bootstrap.Label(
+            auto_fill_frame,
+            text="(Requires valid API key in settings)",
+            font=("TkDefaultFont", 8)
+        ).pack(side=LEFT, padx=(10, 0))
+        
+        # Description (separate section for better layout)
+        desc_frame = ttk_bootstrap.Frame(info_frame)
+        desc_frame.pack(fill=X, padx=10, pady=(0, 10))
+        
+        ttk_bootstrap.Label(desc_frame, text="Description:").pack(anchor=W, pady=(0, 5))
+        
+        description_container = ttk_bootstrap.Frame(desc_frame)
+        description_container.pack(fill=X)
+        
+        self.description_text = tk.Text(description_container, height=3, wrap=tk.WORD)
+        description_scrollbar = ttk_bootstrap.Scrollbar(description_container, orient=tk.VERTICAL, command=self.description_text.yview)
+        self.description_text.config(yscrollcommand=description_scrollbar.set)
+        
+        self.description_text.pack(side=LEFT, fill=BOTH, expand=True)
+        description_scrollbar.pack(side=RIGHT, fill=Y)
+        
         # Options
         options_frame = ttk_bootstrap.LabelFrame(parent, text="Options")
         options_frame.pack(fill=X, pady=(0, 10))
@@ -193,6 +261,55 @@ class AddModDialog(BaseDialog):
         if file_path:
             self.file_var.set(file_path)
     
+    def auto_fill_from_nexus(self):
+        """Auto-fill mod information from Nexus Mods URL"""
+        nexus_url = self.nexus_url_var.get().strip()
+        if not nexus_url:
+            messagebox.showwarning("No URL", "Please enter a Nexus Mods URL first.")
+            return
+        
+        # Parse the URL
+        from api.nexus_api import NexusModsClient
+        parsed_url = NexusModsClient.parse_nexus_url(nexus_url)
+        if not parsed_url:
+            messagebox.showerror("Invalid URL", "The URL is not a valid Nexus Mods URL for Stalker 2.")
+            return
+        
+        # Try to get API key from parent (assuming it's the main window)
+        api_key = None
+        if hasattr(self.parent, 'config_manager') and self.parent.config_manager:
+            api_key = self.parent.config_manager.get_api_key()
+        
+        if not api_key:
+            messagebox.showwarning("No API Key", 
+                "No API key configured. Please set up your Nexus Mods API key in Settings first.")
+            return
+        
+        # Fetch mod information
+        try:
+            # Show a temporary message (non-blocking)
+            self.dialog.update()  # Ensure dialog is updated
+            
+            client = NexusModsClient(api_key)
+            mod_info = client.get_mod_info(parsed_url["mod_id"])
+            
+            # Fill in the fields
+            self.mod_name_var.set(mod_info.get("name", ""))
+            self.author_var.set(mod_info.get("author", ""))
+            self.version_var.set(mod_info.get("version", ""))
+            
+            # Set description
+            summary = mod_info.get("summary", "")
+            if summary:
+                self.description_text.delete("1.0", tk.END)
+                self.description_text.insert("1.0", summary)
+            
+            messagebox.showinfo("Success", "Mod information fetched successfully!")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to fetch mod information:\n{str(e)}")
+            logger.error(f"Failed to auto-fill from Nexus: {e}")
+    
     def get_result(self):
         """Return the dialog result"""
         if self.mode == "url":
@@ -210,9 +327,37 @@ class AddModDialog(BaseDialog):
             if not file_path:
                 messagebox.showerror("Error", "Please select a file")
                 return None
+            
+            # Get optional mod information
+            mod_info = {}
+            
+            # Get description from text widget
+            description = self.description_text.get("1.0", tk.END).strip()
+            
+            # Parse Nexus URL if provided to extract mod ID
+            nexus_url = self.nexus_url_var.get().strip()
+            nexus_mod_id = None
+            if nexus_url:
+                from api.nexus_api import NexusModsClient
+                parsed_url = NexusModsClient.parse_nexus_url(nexus_url)
+                if parsed_url:
+                    nexus_mod_id = parsed_url.get("mod_id")
+                else:
+                    # Invalid URL, show warning but don't block
+                    messagebox.showwarning("Invalid URL", 
+                        "The Nexus Mods URL appears to be invalid. It will be ignored.")
+            
             return {
                 "file_path": file_path,
-                "auto_enable": self.auto_enable_var.get()
+                "auto_enable": self.auto_enable_var.get(),
+                "mod_info": {
+                    "mod_name": self.mod_name_var.get().strip() or None,
+                    "author": self.author_var.get().strip() or None,
+                    "version": self.version_var.get().strip() or None,
+                    "summary": description or None,
+                    "nexus_mod_id": nexus_mod_id,
+                    "nexus_url": nexus_url or None
+                }
             }
 
 

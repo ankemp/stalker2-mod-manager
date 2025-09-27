@@ -515,28 +515,29 @@ class MainWindow:
         import os
         from pathlib import Path
         import config as app_config
-        
+
         file_path = dialog_result['file_path']
         auto_enable = dialog_result['auto_enable']
-        
+        mod_info = dialog_result.get('mod_info', {})
+
         self.status_bar.set_status(f"Processing file: {os.path.basename(file_path)}")
-        
+
         if not self.file_manager:
             messagebox.showerror("Error", "File manager not initialized. Please check your configuration.")
             return
-        
+
         def install_thread():
             try:
                 # Validate the archive
                 self.root.after(0, lambda: self.status_bar.set_status("Validating archive..."))
-                
+
                 if not self.file_manager.validate_archive(file_path):
                     self.root.after(0, lambda: messagebox.showerror(
-                        "Invalid Archive", 
+                        "Invalid Archive",
                         "The selected file is not a valid archive or may be corrupted."
                     ))
                     return
-                
+
                 # Check for security issues
                 security_result = self.file_manager.scan_archive_security(file_path)
                 if not security_result['safe']:
@@ -547,11 +548,14 @@ class MainWindow:
                     )
                     if not response:
                         return
-                
-                # Extract mod name from filename
-                file_name = Path(file_path).stem
-                mod_name = file_name.replace('_', ' ').replace('-', ' ').title()
-                
+
+                # Use user-provided mod name or extract from filename
+                if mod_info.get('mod_name'):
+                    mod_name = mod_info['mod_name']
+                else:
+                    file_name = Path(file_path).stem
+                    mod_name = file_name.replace('_', ' ').replace('-', ' ').title()
+
                 # Check if mod with same name already exists
                 existing_mods = self.mod_manager.get_all_mods()
                 for mod in existing_mods:
@@ -561,13 +565,13 @@ class MainWindow:
                             f"A mod with the name '{mod_name}' already exists.\n\nPlease rename the file or remove the existing mod first."
                         ))
                         return
-                
+
                 # Copy archive to mods directory
                 self.root.after(0, lambda: self.status_bar.set_status("Copying archive to mods directory..."))
-                
+
                 mods_dir = Path(app_config.DEFAULT_MODS_DIR)
                 mods_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # Generate unique filename if necessary
                 archive_name = Path(file_path).name
                 dest_path = mods_dir / archive_name
@@ -578,35 +582,39 @@ class MainWindow:
                     archive_name = f"{name_part}_{counter}{ext_part}"
                     dest_path = mods_dir / archive_name
                     counter += 1
-                
+
                 # Copy the file
                 import shutil
                 shutil.copy2(file_path, dest_path)
-                
-                # Add mod to database
+
+                # Add mod to database using user-provided information
                 self.root.after(0, lambda: self.status_bar.set_status("Adding mod to database..."))
+                
+                # Build mod data with user-provided info or fallbacks
                 mod_data = {
                     "mod_name": mod_name,
-                    "author": "Unknown",
-                    "summary": f"Local mod installed from {Path(file_path).name}",
-                    "latest_version": "1.0.0",
+                    "nexus_mod_id": mod_info.get('nexus_mod_id'),  # Will be None if not provided
+                    "author": mod_info.get('author') or "Unknown",
+                    "summary": mod_info.get('summary') or f"Local mod installed from {Path(file_path).name}",
+                    "latest_version": mod_info.get('version') or "1.0.0",
                     "enabled": auto_enable
                 }
-                
+
                 new_mod_id = self.mod_manager.add_mod(mod_data)
-                
+
                 # Add archive record
+                archive_version = mod_info.get('version') or "1.0.0"
                 self.archive_manager.add_archive(
                     mod_id=new_mod_id,
-                    version="1.0.0",
+                    version=archive_version,
                     file_name=archive_name,
                     file_size=None  # TODO: Get actual file size
                 )
-                
+
                 # Refresh the UI on main thread
                 self.root.after(0, self.refresh_mod_list)
                 self.root.after(0, lambda: self.status_bar.set_status(f"Successfully added mod: {mod_name}"))
-                
+
                 # Show success message
                 message = f"Successfully added mod '{mod_name}'"
                 if auto_enable:
