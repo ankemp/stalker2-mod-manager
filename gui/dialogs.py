@@ -11,24 +11,22 @@ from ttkbootstrap.constants import *
 class BaseDialog:
     """Base class for modal dialogs"""
     
-    def __init__(self, parent, title="Dialog", size=(400, 300)):
+    def __init__(self, parent, title="Dialog", minsize=(300, 200), resizable=False):
         self.parent = parent
         self.result = None
-        
         # Create modal dialog
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(title)
-        self.dialog.geometry(f"{size[0]}x{size[1]}")
-        self.dialog.resizable(False, False)
         self.dialog.transient(parent)
         self.dialog.grab_set()
-        
-        # Center the dialog
-        self.center_dialog()
-        
+        self.dialog.resizable(resizable, resizable)
         # Setup dialog content
         self.setup_ui()
-        
+        # Let Tkinter calculate required size
+        self.dialog.update_idletasks()
+        if minsize:
+            self.dialog.minsize(*minsize)
+        self.center_dialog()
         # Handle dialog close
         self.dialog.protocol("WM_DELETE_WINDOW", self.cancel)
     
@@ -71,7 +69,8 @@ class AddModDialog(BaseDialog):
     def __init__(self, parent, mode="url"):
         self.mode = mode  # "url" or "file"
         title = "Add Mod from URL" if mode == "url" else "Add Mod from File"
-        super().__init__(parent, title, (500, 250))
+        # Use a reasonable minsize, let dialog auto-size
+        super().__init__(parent, title, minsize=(400, 200))
     
     def setup_ui(self):
         """Setup the add mod dialog UI"""
@@ -216,8 +215,8 @@ class SettingsDialog(BaseDialog):
     
     def __init__(self, parent, config_manager=None):
         self.config_manager = config_manager
-        super().__init__(parent, "Settings", (600, 400))
-        
+        # Use a reasonable minsize, let dialog auto-size
+        super().__init__(parent, "Settings", minsize=(500, 300), resizable=True)
         # Load current settings if config manager is available
         if self.config_manager:
             self.load_current_settings()
@@ -478,7 +477,8 @@ class DeploymentSelectionDialog(BaseDialog):
     
     def __init__(self, parent, mod_data):
         self.mod_data = mod_data
-        super().__init__(parent, f"Configure File Deployment - {mod_data.get('name', 'Unknown')}", (700, 500))
+        # Use a reasonable minsize, let dialog auto-size
+        super().__init__(parent, f"Configure File Deployment - {mod_data.get('name', 'Unknown')}", minsize=(600, 400), resizable=True)
     
     def setup_ui(self):
         """Setup the deployment selection UI"""

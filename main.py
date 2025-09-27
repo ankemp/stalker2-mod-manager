@@ -13,7 +13,7 @@ def main():
     # Create the root window with ttkbootstrap theme
     root = ttk_bootstrap.Window(themename="darkly")
     root.title("Stalker 2 Mod Manager")
-    root.geometry("1200x800")
+    root.geometry("1280x800")
     root.minsize(900, 600)
     
     # Create and run the main application window
