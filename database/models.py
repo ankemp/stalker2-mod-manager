@@ -8,6 +8,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
 from pathlib import Path
+import config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -345,9 +346,9 @@ class ConfigManager:
     def get_update_interval(self) -> int:
         """Get update check interval in hours"""
         try:
-            return int(self.get_config("update_interval_hours", "24"))
+            return int(self.get_config("update_interval_hours", str(config.DEFAULT_UPDATE_INTERVAL_HOURS)))
         except (ValueError, TypeError):
-            return 24
+            return config.DEFAULT_UPDATE_INTERVAL_HOURS
     
     def set_update_interval(self, hours: int) -> None:
         """Set update check interval in hours"""

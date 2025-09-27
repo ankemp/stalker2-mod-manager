@@ -11,6 +11,7 @@ from typing import Optional, Dict, Any, List, Callable
 import re
 from urllib.parse import urlparse, urljoin
 from pathlib import Path
+import config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -36,8 +37,8 @@ class RateLimitError(NexusAPIError):
 class NexusModsClient:
     """Client for interacting with the Nexus Mods API"""
     
-    BASE_URL = "https://api.nexusmods.com/v1"
-    GAME_DOMAIN = "stalker2heartofchornobyl"
+    BASE_URL = config.NEXUS_API_BASE
+    GAME_DOMAIN = config.NEXUS_GAME_DOMAIN
     
     # Rate limiting constants
     RATE_LIMIT_DELAY = 1.0  # Minimum delay between requests

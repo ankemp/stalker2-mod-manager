@@ -75,7 +75,6 @@ WINDOW_DEFAULT_SIZE = (1200, 800)
 
 # Update checking
 DEFAULT_UPDATE_INTERVAL_HOURS = 24
-MAX_UPDATE_INTERVAL_HOURS = 168  # 1 week
 
 def ensure_directories():
     """Ensure all required directories exist"""
@@ -116,6 +115,7 @@ def get_app_info():
 # Common game file patterns to help identify valid installations
 GAME_VALIDATION_FILES = [
     "Stalker2.exe",
-    "Engine/Binaries/Win64/Stalker2-Win64-Shipping.exe",
-    "Stalker2/Content/Paks"
+    "Engine/Binaries/Win64/Stalker2-Win64-Shipping.exe", 
+    "Stalker2/Content/Paks",
+    "Engine"
 ]

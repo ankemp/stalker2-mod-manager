@@ -8,6 +8,7 @@ import logging
 import winreg
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+import config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -387,15 +388,9 @@ class GameDetector:
         if not data_path.exists():
             return False
         
-        # Additional validation - check for some key game files/folders
-        key_items = [
-            "Engine",  # Unreal Engine folder
-            "Stalker2.exe",  # Alternative executable name
-        ]
-        
-        # At least some key items should exist
+        # Additional validation - check for some key game files/folders from config
         found_items = 0
-        for item in key_items:
+        for item in config.GAME_VALIDATION_FILES:
             if (path / item).exists():
                 found_items += 1
         

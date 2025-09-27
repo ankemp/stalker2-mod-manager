@@ -9,6 +9,7 @@ from ttkbootstrap.constants import *
 import threading
 import logging
 from api.nexus_api import NexusModsClient, NexusAPIError
+import config
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -161,9 +162,10 @@ class AddModDialog(BaseDialog):
         ).pack(side=RIGHT, padx=(5, 0))
         
         # File info
+        supported_formats = ', '.join(config.SUPPORTED_ARCHIVE_EXTENSIONS)
         info_label = ttk_bootstrap.Label(
             parent, 
-            text="Supported formats: .zip, .rar, .7z",
+            text=f"Supported formats: {supported_formats}",
             font=("TkDefaultFont", 8)
         )
         info_label.pack(anchor=W, pady=(0, 10))
@@ -248,15 +250,19 @@ class AddModDialog(BaseDialog):
     
     def browse_file(self):
         """Open file browser for mod archive"""
+        # Build file types from config
+        extensions = [ext.lstrip('.') for ext in config.SUPPORTED_ARCHIVE_EXTENSIONS]
+        all_extensions = ' '.join(f'*.{ext}' for ext in extensions)
+        
+        filetypes = [("Archive Files", all_extensions)]
+        # Add individual file types
+        for ext in extensions:
+            filetypes.append((f"{ext.upper()} Files", f"*.{ext}"))
+        filetypes.append(("All Files", "*.*"))
+        
         file_path = filedialog.askopenfilename(
             title="Select Mod Archive",
-            filetypes=[
-                ("Archive Files", "*.zip *.rar *.7z"),
-                ("ZIP Files", "*.zip"),
-                ("RAR Files", "*.rar"),
-                ("7-Zip Files", "*.7z"),
-                ("All Files", "*.*")
-            ]
+            filetypes=filetypes
         )
         if file_path:
             self.file_var.set(file_path)

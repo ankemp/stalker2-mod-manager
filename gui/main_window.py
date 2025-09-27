@@ -165,10 +165,10 @@ class MainWindow:
                         self.deployment_manager.add_deployed_file(mod_id, deployed_path, backup_path)
             
             # Set some basic configuration
-            self.config_manager.set_game_path("C:/Program Files (x86)/Steam/steamapps/common/S.T.A.L.K.E.R. 2- Heart of Chornobyl")
+            self.config_manager.set_game_path(app_config.DEFAULT_GAME_PATH)
             self.config_manager.set_mods_directory(app_config.DEFAULT_MODS_DIR)
             self.config_manager.set_auto_check_updates(True)
-            self.config_manager.set_update_interval(24)
+            self.config_manager.set_update_interval(app_config.DEFAULT_UPDATE_INTERVAL_HOURS)
             
             print("Loaded sample data into database")
             

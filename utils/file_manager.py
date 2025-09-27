@@ -15,6 +15,7 @@ from typing import List, Dict, Optional, Any, Tuple
 from pathlib import Path
 from datetime import datetime
 import stat
+import config
 
 
 class ArchiveManager:
@@ -173,9 +174,8 @@ class ArchiveManager:
         """Check if a file is a valid mod archive"""
         file_path = Path(file_path)
         
-        # Check file extension
-        valid_extensions = {'.zip', '.7z', '.rar'}
-        if file_path.suffix.lower() not in valid_extensions:
+        # Check file extension using config
+        if file_path.suffix.lower() not in config.SUPPORTED_ARCHIVE_EXTENSIONS:
             return False
         
         # For now, only handle ZIP files (most common for mods)
@@ -677,9 +677,8 @@ class ModFileValidator:
         if not file_path.exists():
             return False
         
-        # Check file extension
-        valid_extensions = {'.zip', '.7z', '.rar'}
-        if file_path.suffix.lower() not in valid_extensions:
+        # Check file extension using config
+        if file_path.suffix.lower() not in config.SUPPORTED_ARCHIVE_EXTENSIONS:
             return False
         
         # Check file size (should be > 0)
