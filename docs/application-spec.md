@@ -32,7 +32,7 @@ The application is for players of Stalker 2 on PC who use mods from Nexus Mods a
 5. **Staged Enable/Disable Toggling:** Users can enable or disable mods. Changes are staged and applied only when the user chooses to deploy.  
 6. **Selective File Deployment:** On first enablement, the application displays the mod archive's file-tree, allowing the user to select which specific files and folders to deploy. This deployment manifest is saved for each mod.  
 7. **Mod Archive Versioning:** All downloaded mod archives are stored locally, allowing for future features like version reverting.  
-8. **Automatic Update Checking:** Periodically checks for newer versions of linked mods on Nexus Mods.  
+8. **Automatic Update Checking:** Optionally checks for newer versions of linked mods on Nexus Mods on application startup (user configurable). Individual mod updates can be performed on-demand or all mods can be updated at once.  
 9. **Persistent Data Storage:** All mod information, configurations, API keys, and file deployment manifests are saved locally in a database.
 
 ### **2.2. User Stories**
@@ -43,6 +43,46 @@ The application is for players of Stalker 2 on PC who use mods from Nexus Mods a
 * **As a user, I want to** enable and disable mods with a checkbox **so that** I can easily manage my active mod list.  
 * **As a user, I want to** click a "Deploy Changes" button **so that** all the mods I've enabled or disabled are applied at once.  
 * **As a user, I want to** see at a glance which of my mods are outdated **so that** I can easily keep my game current.
+* **As a user, I want to** control whether the application checks for updates automatically on startup **so that** I can manage my internet usage and startup time.
+* **As a user, I want to** update individual mods or all mods at once **so that** I have flexibility in managing my mod updates.
+
+## **2.3. Keyboard Shortcuts**
+
+The application provides keyboard shortcuts for common operations to improve user workflow efficiency. All shortcuts are accessible via **Help > Keyboard Shortcuts** in the application menu.
+
+> **⚠️ DEVELOPMENT NOTICE:** When adding new keyboard shortcuts, this documentation MUST be updated to reflect the changes. The shortcuts dialog (`show_shortcuts` method in `gui/main_window.py`) must also be updated.
+
+### **2.3.1. Current Keyboard Shortcuts**
+
+#### **File Operations**
+- **Ctrl+O** - Add Mod from URL
+- **Ctrl+Shift+O** - Add Mod from File  
+- **Delete** - Remove Selected Mod
+
+#### **Mod Management**
+- **F5** - Check for Updates
+- **Ctrl+U** - Update All Mods
+- **Ctrl+D** - Deploy Changes
+
+#### **Navigation**
+- **Ctrl+S** - Open Settings
+- **F1** - Show About Dialog
+
+### **2.3.2. Implementation Guidelines**
+
+1. **Consistency**: Use standard Windows conventions where possible
+2. **Accessibility**: All major functions should have keyboard alternatives
+3. **Documentation**: Both this spec and the in-app shortcuts dialog must be updated for any changes
+4. **Testing**: New shortcuts must be tested for conflicts with system shortcuts
+
+### **2.3.3. Maintenance Requirements**
+
+When modifying keyboard shortcuts:
+1. Update the `setup_bindings()` method in `gui/main_window.py`
+2. Update the shortcuts dictionary in `show_shortcuts()` method  
+3. Update this documentation section
+4. Test all shortcuts work as expected
+5. Verify no conflicts with system or common application shortcuts
 
 ## **3\. Technical Architecture & Stack**
 

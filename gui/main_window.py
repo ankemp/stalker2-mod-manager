@@ -52,6 +52,9 @@ class MainWindow:
         
         # Initialize API components after UI is ready
         self.init_api_components()
+        
+        # Check for updates on startup if enabled
+        self.check_updates_on_startup()
     
     def init_api_components(self):
         """Initialize API client and file manager based on current settings"""
@@ -86,6 +89,47 @@ class MainWindow:
             logger.error(f"Error initializing API components: {e}")
             self.status_bar.set_status(f"Error initializing API components: {e}")
     
+    def check_updates_on_startup(self):
+        """Check for updates on startup if the user has enabled this option"""
+        try:
+            # Check if auto-update checking is enabled
+            if not self.config_manager.get_auto_check_updates():
+                logger.info("Auto-update checking disabled, skipping startup update check")
+                return
+            
+            # Check if we have an API client configured
+            if not self.nexus_client:
+                logger.info("No API key configured, skipping startup update check")
+                return
+            
+            # Check if there are any mods to update
+            all_mods = self.mod_manager.get_all_mods()
+            nexus_mods = [mod for mod in all_mods if mod.get('nexus_mod_id')]
+            
+            if not nexus_mods:
+                logger.info("No Nexus mods found, skipping startup update check")
+                return
+            
+            # Delay the update check slightly to allow UI to fully initialize
+            logger.info("Scheduling startup update check...")
+            self.root.after(2000, self._perform_startup_update_check)
+            
+        except Exception as e:
+            logger.error(f"Error during startup update check setup: {e}")
+    
+    def _perform_startup_update_check(self):
+        """Perform the actual startup update check"""
+        try:
+            logger.info("Performing startup update check...")
+            self.status_bar.set_status("Checking for mod updates...")
+            
+            # Use the existing check_for_updates method
+            self.check_for_updates()
+            
+        except Exception as e:
+            logger.error(f"Error during startup update check: {e}")
+            self.status_bar.set_status("Error checking for updates on startup")
+    
     def init_basic_config_if_needed(self):
         """Initialize basic configuration only (no sample data)"""
         try:
@@ -101,7 +145,9 @@ class MainWindow:
             import config as app_config
             
             # Set only essential configuration
-            self.config_manager.set_auto_check_updates(True)
+            # Set auto_check_updates to True by default, but don't override user's choice
+            if self.config_manager.get_auto_check_updates() is None:
+                self.config_manager.set_auto_check_updates(True)
             self.config_manager.set_update_interval(app_config.DEFAULT_UPDATE_INTERVAL_HOURS)
             
             # Set default mod storage directory
@@ -185,6 +231,7 @@ class MainWindow:
         tools_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Tools", menu=tools_menu)
         tools_menu.add_command(label="Check for Updates", command=self.check_for_updates)
+        tools_menu.add_command(label="Update All Mods", command=self.update_all_mods)
         tools_menu.add_command(label="Deploy Changes", command=self.deploy_changes)
         tools_menu.add_separator()
         tools_menu.add_command(label="Task Monitor", command=self.show_task_monitor)
@@ -195,6 +242,8 @@ class MainWindow:
         # Help Menu
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="Keyboard Shortcuts", command=self.show_shortcuts)
+        help_menu.add_separator()
         help_menu.add_command(label="About", command=self.show_about)
     
     def setup_main_ui(self):
@@ -292,10 +341,17 @@ class MainWindow:
         
         # Update check button
         ttk_bootstrap.Button(
-            toolbar_frame, 
-            text="Check Updates", 
+            toolbar_frame,
+            text="Check Updates",
             command=self.check_for_updates,
-            bootstyle=DARK
+            bootstyle=INFO
+        ).pack(side=LEFT, padx=(0, 5))
+        
+        ttk_bootstrap.Button(
+            toolbar_frame,
+            text="Update All",
+            command=self.update_all_mods,
+            bootstyle=SUCCESS
         ).pack(side=LEFT, padx=(0, 5))
         
         # Settings button on the right
@@ -312,8 +368,11 @@ class MainWindow:
         self.root.bind('<Control-o>', lambda e: self.add_mod_from_url())
         self.root.bind('<Control-Shift-O>', lambda e: self.add_mod_from_file())
         self.root.bind('<F5>', lambda e: self.check_for_updates())
+        self.root.bind('<Control-u>', lambda e: self.update_all_mods())
         self.root.bind('<Control-d>', lambda e: self.deploy_changes())
         self.root.bind('<Delete>', lambda e: self.remove_selected_mod())
+        self.root.bind('<Control-s>', lambda e: self.open_settings())
+        self.root.bind('<F1>', lambda e: self.show_about())
         
         # Window close event
         self.root.protocol("WM_DELETE_WINDOW", self.close_application)
@@ -1053,6 +1112,216 @@ class MainWindow:
         
         logger.info(f"Started update check task: {task_id}")
     
+    def update_all_mods(self):
+        """Update all mods that have updates available"""
+        from api.nexus_api import NexusAPIError
+        from utils.thread_manager import get_thread_manager, TaskType
+        
+        if not self.nexus_client:
+            messagebox.showwarning("API Not Available", "No API key configured. Please go to Settings > Nexus API and add your API key.")
+            return
+        
+        # First check for updates to get the list of mods that need updating
+        self.status_bar.set_status("Checking for updates before updating all mods...")
+        
+        def update_all_thread():
+            try:
+                # Get all mods with Nexus IDs
+                all_mods = self.mod_manager.get_all_mods()
+                nexus_mods = [mod for mod in all_mods if mod.get('nexus_mod_id')]
+                
+                if not nexus_mods:
+                    self.root.after(0, lambda: self.status_bar.set_status("No Nexus mods to update"))
+                    return
+                
+                updates_available = []
+                errors = []
+                
+                # Check for updates first
+                self.root.after(0, lambda: self.status_bar.set_status("Checking which mods need updates..."))
+                
+                for mod in nexus_mods:
+                    try:
+                        mod_id = mod['nexus_mod_id']
+                        current_version = mod.get('latest_version', '0.0.0')
+                        
+                        # Get latest mod info
+                        mod_info = self.nexus_client.get_mod_info(mod_id)
+                        latest_version = mod_info.get('version', '0.0.0')
+                        
+                        # Simple version comparison
+                        if latest_version != current_version:
+                            updates_available.append({
+                                'mod': mod,
+                                'current_version': current_version,
+                                'latest_version': latest_version,
+                                'mod_info': mod_info
+                            })
+                            
+                            # Update the mod's latest version in database
+                            self.mod_manager.update_mod(mod['id'], {'latest_version': latest_version})
+                        
+                    except Exception as e:
+                        errors.append(f"{mod['mod_name']}: {e}")
+                
+                if not updates_available:
+                    self.root.after(0, lambda: self.status_bar.set_status("All mods are up to date"))
+                    self.root.after(0, lambda: messagebox.showinfo("Update All", "All mods are already up to date!"))
+                    return
+                
+                # Confirm update all
+                update_count = len(updates_available)
+                mod_list = "\\n".join([f"• {u['mod']['mod_name']} ({u['current_version']} → {u['latest_version']})" for u in updates_available[:5]])
+                if update_count > 5:
+                    mod_list += f"\\n... and {update_count - 5} more"
+                
+                confirm_msg = f"Update {update_count} mod(s)?\\n\\n{mod_list}\\n\\nThis will replace the current archives with new versions."
+                
+                def confirm_callback():
+                    result = messagebox.askyesno("Confirm Update All", confirm_msg)
+                    if not result:
+                        self.root.after(0, lambda: self.status_bar.set_status("Update all cancelled"))
+                        return
+                    
+                    # Proceed with updates
+                    self.root.after(0, lambda: self.perform_bulk_updates(updates_available))
+                
+                self.root.after(0, confirm_callback)
+                
+            except Exception as e:
+                error_msg = f"Error checking for updates: {e}"
+                self.root.after(0, lambda: messagebox.showerror("Update All Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+        
+        # Create task using thread manager
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.UPDATE_CHECK,
+            description="Preparing to update all mods",
+            target=update_all_thread,
+            can_cancel=True
+        )
+        
+        logger.info(f"Started update all preparation task: {task_id}")
+    
+    def perform_bulk_updates(self, updates_available):
+        """Perform the actual bulk updates"""
+        from api.nexus_api import NexusAPIError, ModDownloader
+        from utils.thread_manager import get_thread_manager, TaskType
+        import config as app_config
+        import os
+        from pathlib import Path
+        
+        def bulk_update_thread():
+            try:
+                updated_count = 0
+                failed_count = 0
+                total_count = len(updates_available)
+                
+                for i, update in enumerate(updates_available):
+                    mod = update['mod']
+                    mod_name = mod.get('mod_name', 'Unknown')
+                    
+                    try:
+                        self.root.after(0, lambda m=mod_name, c=i+1, t=total_count: 
+                                      self.status_bar.set_status(f"Updating {m} ({c}/{t})..."))
+                        
+                        # Get latest main file
+                        nexus_mod_id = mod['nexus_mod_id']
+                        files = self.nexus_client.get_mod_files(nexus_mod_id)
+                        main_files = [f for f in files if f.get('category_name') == 'MAIN']
+                        if not main_files:
+                            main_files = files  # Fall back to any file
+                        
+                        if not main_files:
+                            failed_count += 1
+                            logger.warning(f"No files found for mod {mod_name}")
+                            continue
+                        
+                        # Use the first (usually latest) main file
+                        latest_file = main_files[0]
+                        file_id = latest_file['file_id']
+                        
+                        # Download the new version
+                        download_url = self.nexus_client.get_download_url(nexus_mod_id, file_id)
+                        
+                        # Create downloader
+                        downloader = ModDownloader(
+                            url=download_url,
+                            filename=latest_file['file_name'],
+                            target_dir=app_config.DEFAULT_MODS_DIR
+                        )
+                        
+                        # Download with progress updates
+                        def progress_callback(current, total):
+                            if total > 0:
+                                percent = int((current / total) * 100)
+                                self.root.after(0, lambda p=percent, m=mod_name: 
+                                              self.status_bar.set_status(f"Downloading {m}: {p}%"))
+                        
+                        downloaded_path = downloader.download(progress_callback)
+                        
+                        if downloaded_path and os.path.exists(downloaded_path):
+                            # Remove old archive if it exists
+                            old_archives = self.archive_manager.get_mod_archives(mod['id'])
+                            for archive in old_archives:
+                                old_path = Path(app_config.DEFAULT_MODS_DIR) / archive['file_name']
+                                if old_path.exists():
+                                    try:
+                                        old_path.unlink()
+                                        logger.info(f"Removed old archive: {old_path}")
+                                    except Exception as e:
+                                        logger.warning(f"Could not remove old archive {old_path}: {e}")
+                            
+                            # Add new archive record
+                            file_size = os.path.getsize(downloaded_path)
+                            self.archive_manager.add_archive(
+                                mod_id=mod['id'],
+                                version=update['latest_version'],
+                                file_name=os.path.basename(downloaded_path),
+                                file_size=file_size,
+                                set_active=True
+                            )
+                            
+                            # Update mod record
+                            self.mod_manager.update_mod(mod['id'], {
+                                'latest_version': update['latest_version']
+                            })
+                            
+                            updated_count += 1
+                            logger.info(f"Successfully updated {mod_name} to {update['latest_version']}")
+                        else:
+                            failed_count += 1
+                            logger.error(f"Failed to download {mod_name}")
+                    
+                    except Exception as e:
+                        failed_count += 1
+                        logger.error(f"Error updating {mod_name}: {e}")
+                
+                # Show final results
+                if updated_count > 0:
+                    self.root.after(0, self.refresh_mod_list)  # Refresh the mod list
+                
+                success_msg = f"Update completed!\\n\\nUpdated: {updated_count}\\nFailed: {failed_count}\\nTotal: {total_count}"
+                self.root.after(0, lambda: messagebox.showinfo("Update All Complete", success_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(f"Updated {updated_count} mod(s), {failed_count} failed"))
+                
+            except Exception as e:
+                error_msg = f"Error during bulk update: {e}"
+                self.root.after(0, lambda: messagebox.showerror("Update All Error", error_msg))
+                self.root.after(0, lambda: self.status_bar.set_status(error_msg))
+        
+        # Create task using thread manager
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.DOWNLOAD,
+            description=f"Updating {len(updates_available)} mod(s)",
+            target=bulk_update_thread,
+            can_cancel=False  # Don't allow cancellation during actual updates
+        )
+        
+        logger.info(f"Started bulk update task: {task_id}")
+    
     def show_update_results(self, updates_available, errors):
         """Show the results of update checking"""
         # Create a results dialog
@@ -1128,6 +1397,19 @@ class MainWindow:
         # Button frame
         button_frame = ttk_bootstrap.Frame(main_frame)
         button_frame.pack(fill=X)
+        
+        # Add "Update All" button if updates are available
+        if updates_available:
+            def update_all_and_close():
+                dialog.destroy()
+                self.perform_bulk_updates(updates_available)
+            
+            ttk_bootstrap.Button(
+                button_frame,
+                text="Update All",
+                command=update_all_and_close,
+                bootstyle=SUCCESS
+            ).pack(side=LEFT)
         
         ttk_bootstrap.Button(
             button_frame,
@@ -1532,6 +1814,138 @@ class MainWindow:
         """Show the task monitor dialog"""
         dialog = TaskMonitorDialog(self)  
         dialog.show()
+    
+    def show_shortcuts(self):
+        """Show keyboard shortcuts dialog"""
+        # Create shortcuts dialog
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Keyboard Shortcuts")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        dialog.resizable(False, False)
+        
+        # Set dialog icon
+        try:
+            import config
+            config.set_window_icon(dialog)
+        except Exception as e:
+            logger.debug(f"Could not set shortcuts dialog icon: {e}")
+        
+        main_frame = ttk_bootstrap.Frame(dialog)
+        main_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Title
+        title_label = ttk_bootstrap.Label(
+            main_frame,
+            text="Keyboard Shortcuts",
+            font=("TkDefaultFont", 14, "bold")
+        )
+        title_label.pack(pady=(0, 20))
+        
+        # Create scrollable frame for shortcuts
+        canvas = tk.Canvas(main_frame, height=400, width=500)
+        scrollbar = ttk_bootstrap.Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk_bootstrap.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Define all keyboard shortcuts with categories
+        shortcuts = {
+            "File Operations": [
+                ("Ctrl+O", "Add Mod from URL"),
+                ("Ctrl+Shift+O", "Add Mod from File"),
+                ("Delete", "Remove Selected Mod")
+            ],
+            "Mod Management": [
+                ("F5", "Check for Updates"),
+                ("Ctrl+U", "Update All Mods"),
+                ("Ctrl+D", "Deploy Changes")
+            ],
+            "Navigation": [
+                ("Ctrl+S", "Open Settings"),
+                ("F1", "Show About Dialog")
+            ]
+        }
+        
+        # Add shortcuts to scrollable frame
+        for category, shortcut_list in shortcuts.items():
+            # Category header
+            category_label = ttk_bootstrap.Label(
+                scrollable_frame,
+                text=category,
+                font=("TkDefaultFont", 11, "bold")
+            )
+            category_label.pack(anchor="w", pady=(15, 5))
+            
+            # Shortcuts in this category
+            for shortcut, description in shortcut_list:
+                shortcut_frame = ttk_bootstrap.Frame(scrollable_frame)
+                shortcut_frame.pack(fill=X, pady=2)
+                
+                # Shortcut key (right-aligned)
+                shortcut_label = ttk_bootstrap.Label(
+                    shortcut_frame,
+                    text=shortcut,
+                    font=("Consolas", 9),
+                    width=15,
+                    anchor="e"
+                )
+                shortcut_label.pack(side=LEFT, padx=(10, 10))
+                
+                # Description
+                desc_label = ttk_bootstrap.Label(
+                    shortcut_frame,
+                    text=description,
+                    font=("TkDefaultFont", 9)
+                )
+                desc_label.pack(side=LEFT, fill=X, expand=True)
+        
+        # Pack canvas and scrollbar
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # Add note about shortcuts
+        note_frame = ttk_bootstrap.Frame(main_frame)
+        note_frame.pack(fill=X, pady=(15, 0))
+        
+        note_label = ttk_bootstrap.Label(
+            note_frame,
+            text="💡 Note: Shortcuts work when the main window is focused",
+            font=("TkDefaultFont", 8, "italic"),
+            foreground="gray"
+        )
+        note_label.pack(anchor="w")
+        
+        # Close button
+        button_frame = ttk_bootstrap.Frame(main_frame)
+        button_frame.pack(fill=X, pady=(20, 0))
+        
+        close_button = ttk_bootstrap.Button(
+            button_frame,
+            text="Close",
+            command=dialog.destroy,
+            bootstyle=PRIMARY
+        )
+        close_button.pack(side=RIGHT)
+        
+        # Center dialog on parent
+        dialog.update_idletasks()
+        x = (self.root.winfo_rootx() + self.root.winfo_width() // 2 - dialog.winfo_width() // 2)
+        y = (self.root.winfo_rooty() + self.root.winfo_height() // 2 - dialog.winfo_height() // 2)
+        dialog.geometry(f"+{x}+{y}")
+        
+        # Make canvas scrollable with mouse wheel
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        dialog.bind("<MouseWheel>", _on_mousewheel)
     
     def show_about(self):
         """Show about dialog"""

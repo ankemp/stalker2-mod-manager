@@ -7,7 +7,9 @@ A lightweight Windows desktop mod manager for "Stalker 2: Heart of Chornobyl" th
 - **Easy Mod Installation**: Add mods via Nexus Mods URL or local archive files
 - **Selective File Deployment**: Choose exactly which files from a mod to install
 - **Enable/Disable Mods**: Toggle mods on and off without removing them
-- **Automatic Updates**: Check for and install mod updates from Nexus Mods
+- **Automatic Updates**: Optionally check for mod updates on startup (configurable in settings)
+- **Bulk Operations**: Update all mods at once or individually
+- **Keyboard Shortcuts**: Quick access to common operations (Help > Keyboard Shortcuts)
 - **Modern UI**: Clean, dark-themed interface built with ttkbootstrap
 - **Safe Deployment**: Backup original files and manage conflicts
 
@@ -392,9 +394,6 @@ python scripts/validate_api_compliance.py
 - Connect mod enable/disable toggle functionality to file manager
 - Update mod status tracking after deployment operations
 
-**Settings & Configuration:**
-- Save and load all user preferences and configuration settings
-
 **File Management Operations:**
 - Connect deployed files tracking to UI display
 - Implement file conflict resolution UI workflows  
@@ -403,10 +402,6 @@ python scripts/validate_api_compliance.py
 - Add file integrity verification and repair tools
 
 **Application Lifecycle:**
-- Implement proper application shutdown procedures
-- Save pending changes on exit
-- ✅ **Database connections cleanup on exit**
-- Stop background threads safely
 - Add crash recovery and error reporting
 
 **User Experience Enhancements:**
@@ -418,6 +413,7 @@ python scripts/validate_api_compliance.py
 - Final testing and bug fixes across all integrated systems
 - Performance optimization for large mod collections
 - Memory management and resource cleanup
+- Cache management and cleanup
 - User documentation and help system
 - Installation packaging and distribution
 

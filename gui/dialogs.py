@@ -165,13 +165,6 @@ class AddModDialog(BaseDialog):
             text="Enable mod after installation",
             variable=self.auto_enable_var
         ).pack(anchor=W, padx=10, pady=5)
-        
-        self.check_updates_var = tk.BooleanVar(value=True)
-        ttk_bootstrap.Checkbutton(
-            options_frame, 
-            text="Check for updates automatically",
-            variable=self.check_updates_var
-        ).pack(anchor=W, padx=10, pady=5)
     
     def add_premium_warning_if_needed(self, parent):
         """Add warning for non-premium users about download limitations"""
@@ -401,7 +394,7 @@ class AddModDialog(BaseDialog):
             return {
                 "url": url,
                 "auto_enable": self.auto_enable_var.get(),
-                "check_updates": self.check_updates_var.get()
+                "check_updates": True  # Always check for updates
             }
         else:
             file_path = self.file_var.get().strip()
@@ -535,7 +528,7 @@ class SettingsDialog(BaseDialog):
         # Auto-update settings
         update_frame = ttk_bootstrap.LabelFrame(parent, text="Update Settings")
         update_frame.pack(fill=X, padx=10, pady=10)
-        
+
         self.auto_check_updates_var = tk.BooleanVar(value=True)
         ttk_bootstrap.Checkbutton(
             update_frame,
