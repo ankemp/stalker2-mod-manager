@@ -2,6 +2,7 @@
 Main Window for Stalker 2 Mod Manager
 """
 
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import ttkbootstrap as ttk_bootstrap
@@ -360,6 +361,37 @@ class MainWindow:
             self.configure_file_deployment_for_mod(mod_data)
         elif action == "remove":
             self.remove_mod(mod_data)
+        elif action == "get_archive_info":
+            return self.get_mod_archive_info(mod_data)
+    
+    def get_mod_archive_info(self, mod_data):
+        """Get archive information for a mod"""
+        try:
+            mod_id = mod_data.get("id")
+            if not mod_id:
+                return None
+            
+            # Get the active archive for this mod
+            archives = self.archive_manager.get_mod_archives(mod_id)
+            if archives:
+                # Return the active archive or the first one
+                active_archive = None
+                for archive in archives:
+                    if archive.get("is_active"):
+                        active_archive = archive
+                        break
+                
+                # If no active archive, use the first one
+                if not active_archive and archives:
+                    active_archive = archives[0]
+                
+                return active_archive
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting archive info for mod {mod_data.get('id', 'unknown')}: {e}")
+            return None
     
     # Menu and toolbar action handlers
     def add_mod_from_url(self):
@@ -462,11 +494,13 @@ class MainWindow:
                     new_mod_id = self.mod_manager.add_mod(mod_data)
                     
                     # Add archive record
+                    # Use the actual filename that was generated and used for download
+                    actual_filename = Path(archive_path).name
                     file_info = self.nexus_client.get_file_info(mod_id, current_file_id)
                     self.archive_manager.add_archive(
                         mod_id=new_mod_id,
                         version=mod_info.get('version', '1.0.0'),
-                        file_name=file_info['file_name'],
+                        file_name=actual_filename,  # Use the actual downloaded filename
                         file_size=file_info.get('size_kb', 0) * 1024 if file_info.get('size_kb') else None
                         # TODO: Store nexus_file_id in a separate field if needed
                     )
@@ -619,11 +653,12 @@ class MainWindow:
 
                 # Add archive record
                 archive_version = mod_info.get('version') or "1.0.0"
+                file_size = dest_path.stat().st_size if dest_path.exists() else None
                 self.archive_manager.add_archive(
                     mod_id=new_mod_id,
                     version=archive_version,
                     file_name=archive_name,
-                    file_size=None  # TODO: Get actual file size
+                    file_size=file_size
                 )
 
                 # Refresh the UI on main thread

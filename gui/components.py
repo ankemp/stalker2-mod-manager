@@ -6,7 +6,9 @@ import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
+from pathlib import Path
 from utils.logging_config import get_logger
+import config
 # Initialize logger for this module
 logger = get_logger(__name__)
 
@@ -487,6 +489,20 @@ class ModDetailsFrame:
         self.update_label = ttk_bootstrap.Label(status_frame, textvariable=self.update_var, foreground="orange")
         self.update_label.pack(side=LEFT)
         
+        # File status info
+        file_status_frame = ttk_bootstrap.Frame(info_frame)
+        file_status_frame.pack(fill=X, padx=10, pady=(0, 5))
+        
+        ttk_bootstrap.Label(file_status_frame, text="Archive File:").pack(side=LEFT)
+        self.file_status_var = tk.StringVar()
+        self.file_status_label = ttk_bootstrap.Label(file_status_frame, textvariable=self.file_status_var)
+        self.file_status_label.pack(side=LEFT, padx=(5, 20))
+        
+        # File size info (shown when file exists)
+        self.file_size_var = tk.StringVar()
+        self.file_size_label = ttk_bootstrap.Label(file_status_frame, textvariable=self.file_size_var, font=("TkDefaultFont", 8))
+        self.file_size_label.pack(side=LEFT, padx=(5, 0))
+        
         # Description
         desc_label = ttk_bootstrap.Label(info_frame, text="Description:", font=("TkDefaultFont", 9, "bold"))
         desc_label.pack(anchor=W, padx=10, pady=(10, 5))
@@ -614,14 +630,17 @@ class ModDetailsFrame:
             self.update_var.set("")
             self.update_button.config(state=DISABLED)
         
+        # Update file status
+        self.update_file_status(mod_data)
+        
         # Update description
         self.description_text.delete(1.0, tk.END)
         self.description_text.insert(1.0, mod_data.get("summary", "No description available."))
         self.description_text.config(state=tk.DISABLED)
         
         # Update Nexus link
-        if mod_data.get("nexus_id"):
-            nexus_url = f"https://www.nexusmods.com/stalker2heartofchornobyl/mods/{mod_data['nexus_id']}"
+        if mod_data.get("nexus_mod_id"):
+            nexus_url = f"https://www.nexusmods.com/stalker2heartofchornobyl/mods/{mod_data['nexus_mod_id']}"
             self.nexus_link_var.set(f"View on Nexus Mods: {nexus_url}")
             self.nexus_frame.pack(fill=X, padx=10, pady=(0, 10))
         else:
@@ -639,6 +658,73 @@ class ModDetailsFrame:
         # Enable action buttons
         self.configure_files_button.config(state=NORMAL)
         self.remove_mod_button.config(state=NORMAL)
+    
+    def update_file_status(self, mod_data):
+        """Update the file status indicator"""
+        try:
+            # Check if we have archive information for this mod
+            mod_id = mod_data.get("id")
+            if not mod_id:
+                self.file_status_var.set("⚠️ Unknown")
+                self.file_status_label.config(foreground="orange")
+                self.file_size_var.set("")
+                return
+            
+            # Get archive information from the parent's archive manager
+            # We need to get this from the main window through the callback
+            try:
+                # Try to get archive info through the action callback
+                archive_info = self.action_callback("get_archive_info", mod_data)
+                
+                if archive_info and archive_info.get("file_name"):
+                    # Check if the file exists in the mods directory
+                    mods_dir = Path(config.DEFAULT_MODS_DIR)
+                    archive_path = mods_dir / archive_info["file_name"]
+                    
+                    if archive_path.exists():
+                        # File exists - show green status
+                        self.file_status_var.set("✅ Available")
+                        self.file_status_label.config(foreground="green")
+                        
+                        # Show file size
+                        file_size = archive_path.stat().st_size
+                        if file_size > 1024 * 1024:  # > 1MB
+                            size_str = f"({file_size / (1024*1024):.1f} MB)"
+                        elif file_size > 1024:  # > 1KB
+                            size_str = f"({file_size / 1024:.1f} KB)"
+                        else:
+                            size_str = f"({file_size} bytes)"
+                        
+                        self.file_size_var.set(size_str)
+                        
+                        logger.debug(f"Archive file found: {archive_info['file_name']} ({file_size} bytes)")
+                    else:
+                        # File missing - show red status
+                        self.file_status_var.set("❌ Missing")
+                        self.file_status_label.config(foreground="red")
+                        self.file_size_var.set("")
+                        
+                        logger.warning(f"Archive file missing: {archive_info['file_name']}")
+                else:
+                    # No archive info available
+                    self.file_status_var.set("❓ No Archive")
+                    self.file_status_label.config(foreground="gray")
+                    self.file_size_var.set("")
+                    
+                    logger.debug(f"No archive information for mod {mod_id}")
+                    
+            except Exception as e:
+                # Error getting archive info - fallback to basic check
+                logger.warning(f"Could not get archive info for mod {mod_id}: {e}")
+                self.file_status_var.set("⚠️ Unknown")
+                self.file_status_label.config(foreground="orange")
+                self.file_size_var.set("")
+        
+        except Exception as e:
+            logger.error(f"Error updating file status: {e}")
+            self.file_status_var.set("❌ Error")
+            self.file_status_label.config(foreground="red")
+            self.file_size_var.set("")
     
     def update_files_list(self, mod_data):
         """Update the deployed files list"""
@@ -690,6 +776,13 @@ class ModDetailsFrame:
         self.name_var.set("No mod selected")
         self.author_var.set("")
         self.version_var.set("")
+        self.status_var.set("")
+        self.update_var.set("")
+        
+        # Clear file status
+        self.file_status_var.set("")
+        self.file_size_var.set("")
+        
         self.description_text.config(state=tk.NORMAL)
         self.description_text.delete("1.0", tk.END)
         self.description_text.insert("1.0", "Select a mod from the list to view its details")
@@ -713,7 +806,14 @@ class ModDetailsFrame:
         """Set the UI to a state indicating no mods are available (not just unselected)"""
         self.name_var.set("No mods available")
         self.author_var.set("")
-        self.version_var.set("1.0")
+        self.version_var.set("")
+        self.status_var.set("")
+        self.update_var.set("")
+        
+        # Clear file status
+        self.file_status_var.set("")
+        self.file_size_var.set("")
+        
         self.description_text.config(state=tk.NORMAL)
         self.description_text.delete("1.0", tk.END)
         self.description_text.insert("1.0", "No mods are currently being managed. Add a mod to get started.")
@@ -761,9 +861,8 @@ class ModDetailsFrame:
     def open_nexus_link(self, event):
         """Open Nexus Mods link in browser"""
         import webbrowser
-        if self.current_mod and self.current_mod.get("nexus_id"):
-            nexus_url = f"https://www.nexusmods.com/stalker2heartofchornobyl/mods/{self.current_mod['nexus_id']}"
-            webbrowser.open(nexus_url)
+        nexus_url = f"https://www.nexusmods.com/stalker2heartofchornobyl/mods/{self.current_mod['nexus_mod_id']}"
+        webbrowser.open(nexus_url)
 
 
 class StatusBar:
