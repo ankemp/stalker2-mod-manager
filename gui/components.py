@@ -733,35 +733,119 @@ class ModDetailsFrame:
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
         
-        if self.deployment_manager and mod_data.get("id"):
+        mod_id = mod_data.get("id")
+        if not mod_id:
+            self.files_tree.insert("", "end", text="No mod ID available", values=("error",))
+            return
+        
+        if self.deployment_manager:
             try:
-                deployed_files = self.deployment_manager.get_deployed_files(mod_data["id"])
+                # Get deployment information
+                deployed_files = self.deployment_manager.get_deployed_files(mod_id)
+                deployment_selections = self.deployment_manager.get_deployment_selections(mod_id)
+                is_enabled = mod_data.get("enabled", False)
+                
+                # Show overall status
+                if is_enabled and deployed_files:
+                    status_icon = "✅"
+                    status_text = f"Active - {len(deployed_files)} files deployed"
+                    status_tag = "active"
+                elif is_enabled and not deployed_files:
+                    status_icon = "⚠️"
+                    status_text = "Enabled but no files deployed"
+                    status_tag = "warning"
+                elif not is_enabled and deployed_files:
+                    status_icon = "⭕"
+                    status_text = f"Disabled - {len(deployed_files)} files still deployed"
+                    status_tag = "inconsistent"
+                else:
+                    status_icon = "⭕"
+                    status_text = "Disabled"
+                    status_tag = "disabled"
+                
+                status_item = self.files_tree.insert("", "end", 
+                    text=f"{status_icon} {status_text}", 
+                    values=("Status",), tags=(status_tag,))
+                
+                # Show deployed files
                 if deployed_files:
+                    deployed_parent = self.files_tree.insert("", "end",
+                        text=f"📂 Deployed Files ({len(deployed_files)})",
+                        values=("Section",), tags=("section",))
+                    
                     for deployed_file in deployed_files:
+                        file_path = deployed_file.get("source_path", "")
                         deployed_path = deployed_file.get("deployed_path", "")
                         backup_path = deployed_file.get("original_backup_path")
                         
-                        # Determine status
-                        if backup_path:
-                            status = "deployed (backed up)"
-                            status_color = "blue"
-                        else:
-                            status = "deployed"
-                            status_color = "green"
+                        # Check if file actually exists
+                        import os
+                        file_exists = os.path.exists(deployed_path) if deployed_path else False
                         
-                        item = self.files_tree.insert("", "end", values=(deployed_path, status))
-                        self.files_tree.set(item, "file", os.path.basename(deployed_path))
-                        self.files_tree.set(item, "status", status)
-                else:
-                    # Show message if no files are deployed
-                    self.show_no_deployed_files()
+                        if file_exists:
+                            file_icon = "💾" if backup_path else "📄"
+                            status = "Deployed" + (" (Backed up)" if backup_path else "")
+                            tag = "deployed"
+                        else:
+                            file_icon = "❌"
+                            status = "Missing"
+                            tag = "missing"
+                        
+                        self.files_tree.insert(deployed_parent, "end",
+                            text=f"{file_icon} {os.path.basename(file_path)}",
+                            values=(status,), tags=(tag,))
+                
+                # Show configured files (selections)
+                if deployment_selections:
+                    config_parent = self.files_tree.insert("", "end",
+                        text=f"⚙️ Configured Files ({len(deployment_selections)})", 
+                        values=("Section",), tags=("section",))
+                    
+                    for file_path in deployment_selections:
+                        # Check if this file is currently deployed
+                        is_deployed = any(f.get("source_path") == file_path for f in deployed_files)
+                        
+                        if is_deployed:
+                            file_icon = "✅"
+                            status = "Ready"
+                            tag = "ready"
+                        else:
+                            file_icon = "⏳"
+                            status = "Configured"
+                            tag = "configured"
+                        
+                        self.files_tree.insert(config_parent, "end",
+                            text=f"{file_icon} {os.path.basename(file_path)}",
+                            values=(status,), tags=(tag,))
+                
+                # If no files at all
+                if not deployed_files and not deployment_selections:
+                    self.files_tree.insert("", "end",
+                        text="🔧 No files configured - Click 'Configure Files' to set up deployment",
+                        values=("Info",), tags=("info",))
+                
+                # Configure styling
+                self.files_tree.tag_configure("active", foreground="green", font=("TkDefaultFont", 9, "bold"))
+                self.files_tree.tag_configure("warning", foreground="orange", font=("TkDefaultFont", 9, "bold"))
+                self.files_tree.tag_configure("inconsistent", foreground="red", font=("TkDefaultFont", 9, "bold"))
+                self.files_tree.tag_configure("disabled", foreground="gray", font=("TkDefaultFont", 9, "bold"))
+                self.files_tree.tag_configure("section", foreground="blue", font=("TkDefaultFont", 9, "bold"))
+                self.files_tree.tag_configure("deployed", foreground="green")
+                self.files_tree.tag_configure("missing", foreground="red")
+                self.files_tree.tag_configure("ready", foreground="darkgreen")
+                self.files_tree.tag_configure("configured", foreground="gray")
+                self.files_tree.tag_configure("info", foreground="gray", font=("TkDefaultFont", 9, "italic"))
+                
+                # Expand sections by default
+                for item in self.files_tree.get_children():
+                    self.files_tree.item(item, open=True)
                     
             except Exception as e:
                 logger.error(f"Error loading deployed files: {e}")
                 self.show_deployed_files_error()
+                
         else:
-            # No deployment manager or mod ID available
-            self.show_no_deployed_files()
+            self.files_tree.insert("", "end", text="Deployment manager not available", values=("error",))
     
     def show_no_deployed_files(self):
         """Show message when no files are deployed"""

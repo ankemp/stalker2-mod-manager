@@ -223,6 +223,9 @@ class MainWindow:
         edit_menu.add_command(label="Enable Selected Mod", command=self.enable_selected_mod)
         edit_menu.add_command(label="Disable Selected Mod", command=self.disable_selected_mod)
         edit_menu.add_separator()
+        edit_menu.add_command(label="Enable All Mods", command=self.enable_all_mods)
+        edit_menu.add_command(label="Disable All Mods", command=self.disable_all_mods)
+        edit_menu.add_separator()
         edit_menu.add_command(label="Configure File Deployment...", command=self.configure_file_deployment)
         edit_menu.add_separator()
         edit_menu.add_command(label="Remove Mod", command=self.remove_selected_mod)
@@ -373,6 +376,8 @@ class MainWindow:
         self.root.bind('<Delete>', lambda e: self.remove_selected_mod())
         self.root.bind('<Control-s>', lambda e: self.open_settings())
         self.root.bind('<F1>', lambda e: self.show_about())
+        self.root.bind('<Control-Shift-E>', lambda e: self.enable_all_mods())
+        self.root.bind('<Control-Shift-D>', lambda e: self.disable_all_mods())
         
         # Window close event
         self.root.protocol("WM_DELETE_WINDOW", self.close_application)
@@ -841,6 +846,7 @@ class MainWindow:
                 self.config_manager.set_update_interval(result["update_interval"])
                 self.config_manager.set_confirm_actions(result["confirm_actions"])
                 self.config_manager.set_show_notifications(result["show_notifications"])
+                self.config_manager.set_config("backup_before_deploy", result["backup_before_deploy"])
                 
                 if result["api_key"]:
                     self.config_manager.set_api_key(result["api_key"])
@@ -875,8 +881,113 @@ class MainWindow:
         if selected_mod:
             self.disable_mod(selected_mod)
     
+    def enable_all_mods(self):
+        """Enable all mods (staging only)"""
+        try:
+            all_mods = self.mod_manager.get_all_mods()
+            if not all_mods:
+                self.status_bar.set_status("No mods found to enable")
+                return
+            
+            # Confirm the action
+            result = messagebox.askyesno(
+                "Enable All Mods",
+                f"Are you sure you want to enable all {len(all_mods)} mods?\n\n"
+                "This will stage all mods for deployment. Use 'Deploy Changes' to apply them to the game directory.",
+                icon='question'
+            )
+            if not result:
+                return
+            
+            enabled_count = 0
+            skipped_count = 0
+            
+            for mod in all_mods:
+                if mod.get('enabled'):
+                    # Skip already enabled mods
+                    skipped_count += 1
+                    continue
+                
+                # Check if mod has deployment configuration
+                mod_id = mod.get('id')
+                if mod_id:
+                    selections = self.deployment_manager.get_deployment_selections(mod_id)
+                    if not selections:
+                        # Skip mods without deployment configuration
+                        skipped_count += 1
+                        continue
+                    
+                    # Enable the mod
+                    success = self.mod_list_frame.update_mod_status(mod_id, True)
+                    if success:
+                        enabled_count += 1
+                    else:
+                        skipped_count += 1
+            
+            # Update UI
+            self.mod_list_frame.refresh_mod_list()
+            
+            # Show status message
+            if enabled_count > 0:
+                self.status_bar.set_status(f"Enabled {enabled_count} mod(s), skipped {skipped_count} (use 'Deploy Changes' to apply)")
+            else:
+                self.status_bar.set_status(f"No mods enabled - {skipped_count} already enabled or missing configuration")
+            
+            logger.info(f"Enable all mods: {enabled_count} enabled, {skipped_count} skipped")
+            
+        except Exception as e:
+            logger.error(f"Error enabling all mods: {e}")
+            self.status_bar.set_status(f"Error enabling all mods: {e}")
+    
+    def disable_all_mods(self):
+        """Disable all mods (staging only)"""
+        try:
+            all_mods = self.mod_manager.get_all_mods()
+            if not all_mods:
+                self.status_bar.set_status("No mods found to disable")
+                return
+            
+            enabled_mods = [mod for mod in all_mods if mod.get('enabled')]
+            if not enabled_mods:
+                self.status_bar.set_status("No enabled mods to disable")
+                return
+            
+            # Confirm the action
+            result = messagebox.askyesno(
+                "Disable All Mods",
+                f"Are you sure you want to disable all {len(enabled_mods)} enabled mods?\n\n"
+                "This will stage all mods for removal. Use 'Deploy Changes' to remove them from the game directory.",
+                icon='question'
+            )
+            if not result:
+                return
+            
+            disabled_count = 0
+            
+            for mod in enabled_mods:
+                mod_id = mod.get('id')
+                if mod_id:
+                    success = self.mod_list_frame.update_mod_status(mod_id, False)
+                    if success:
+                        disabled_count += 1
+            
+            # Update UI
+            self.mod_list_frame.refresh_mod_list()
+            
+            # Show status message
+            if disabled_count > 0:
+                self.status_bar.set_status(f"Disabled {disabled_count} mod(s) (use 'Deploy Changes' to apply)")
+            else:
+                self.status_bar.set_status("No mods were disabled")
+            
+            logger.info(f"Disable all mods: {disabled_count} disabled")
+            
+        except Exception as e:
+            logger.error(f"Error disabling all mods: {e}")
+            self.status_bar.set_status(f"Error disabling all mods: {e}")
+    
     def enable_mod(self, mod_data):
-        """Enable a specific mod"""
+        """Enable a specific mod (staging only - does not deploy to game directory)"""
         try:
             mod_id = mod_data.get("id")
             if not mod_id:
@@ -895,10 +1006,10 @@ class MainWindow:
                 # Save the selections
                 self.deployment_manager.save_deployment_selections(mod_id, result["selected_files"])
             
-            # Enable the mod in database
+            # Enable the mod in database (staging only)
             success = self.mod_list_frame.update_mod_status(mod_id, True)
             if success:
-                self.status_bar.set_status(f"Enabled mod: {mod_data.get('name', 'Unknown')}")
+                self.status_bar.set_status(f"Enabled mod: {mod_data.get('name', 'Unknown')} (use 'Deploy Changes' to apply)")
                 # Refresh the details panel
                 updated_mod = self.mod_manager.get_mod(mod_id)
                 if updated_mod:
@@ -911,16 +1022,16 @@ class MainWindow:
             self.status_bar.set_status(f"Error enabling mod: {e}")
     
     def disable_mod(self, mod_data):
-        """Disable a specific mod"""
+        """Disable a specific mod (staging only - does not remove from game directory)"""
         try:
             mod_id = mod_data.get("id")
             if not mod_id:
                 return
             
-            # Disable the mod in database
+            # Disable the mod in database (staging only)
             success = self.mod_list_frame.update_mod_status(mod_id, False)
             if success:
-                self.status_bar.set_status(f"Disabled mod: {mod_data.get('name', 'Unknown')}")
+                self.status_bar.set_status(f"Disabled mod: {mod_data.get('name', 'Unknown')} (use 'Deploy Changes' to apply)")
                 # Refresh the details panel
                 updated_mod = self.mod_manager.get_mod(mod_id)
                 if updated_mod:
@@ -1166,7 +1277,7 @@ class MainWindow:
                 
                 if not updates_available:
                     self.root.after(0, lambda: self.status_bar.set_status("All mods are up to date"))
-                    self.root.after(0, lambda: messagebox.showinfo("Update All", "All mods are already up to date!"))
+                    logger.info("Update check complete: All mods are already up to date")
                     return
                 
                 # Confirm update all
@@ -1298,12 +1409,12 @@ class MainWindow:
                         failed_count += 1
                         logger.error(f"Error updating {mod_name}: {e}")
                 
-                # Show final results
+                # Show final results  
                 if updated_count > 0:
                     self.root.after(0, self.refresh_mod_list)  # Refresh the mod list
                 
-                success_msg = f"Update completed!\\n\\nUpdated: {updated_count}\\nFailed: {failed_count}\\nTotal: {total_count}"
-                self.root.after(0, lambda: messagebox.showinfo("Update All Complete", success_msg))
+                success_msg = f"Update completed! Updated: {updated_count}, Failed: {failed_count}, Total: {total_count}"
+                logger.info(success_msg)
                 self.root.after(0, lambda: self.status_bar.set_status(f"Updated {updated_count} mod(s), {failed_count} failed"))
                 
             except Exception as e:
@@ -1442,9 +1553,9 @@ class MainWindow:
             "Confirm Deployment",
             "Deploy all mod changes to the game directory?\n\n"
             "This will:\n"
-            "• Remove files from disabled mods\n"
-            "• Deploy files from enabled mods\n"
-            "• Create backups of original files\n\n"
+            "• Backup existing mods directory (if enabled in settings)\n"
+            "• Wipe the current mods directory\n"
+            "• Deploy files from all enabled mods\n\n"
             "Continue?"
         )
         if not result:
@@ -1454,92 +1565,83 @@ class MainWindow:
         
         def deploy_thread():
             try:
+                import config
                 deployed_count = 0
                 errors = []
                 
-                # Get all mods
+                # Get backup setting
+                backup_before_deploy = True
+                try:
+                    backup_before_deploy = self.config_manager.get_config('backup_before_deploy', default=True)
+                except:
+                    backup_before_deploy = True
+                
+                # Create game directory manager directly
+                from utils.file_manager import GameDirectoryManager
+                game_mgr = GameDirectoryManager(game_path)
+                
+                # Reset deployment session to allow backup/wipe
+                game_mgr.reset_deployment_session()
+                
+                # Get all enabled mods
                 all_mods = self.mod_manager.get_all_mods()
                 enabled_mods = [mod for mod in all_mods if mod['enabled']]
-                disabled_mods = [mod for mod in all_mods if not mod['enabled']]
                 
-                # First, remove files from disabled mods
-                if disabled_mods:
-                    self.root.after(0, lambda: self.status_bar.set_status("Removing files from disabled mods..."))
-                    
-                    for mod in disabled_mods:
-                        try:
-                            # Get deployed files for this mod
-                            deployed_files = self.deployment_manager.get_deployed_files(mod['id'])
-                            
-                            for file_record in deployed_files:
-                                file_path = file_record['file_path']
-                                if self.file_manager.remove_deployed_file(file_path):
-                                    # Remove from deployed_files table
-                                    self.deployment_manager.remove_deployed_file(
-                                        mod['id'], 
-                                        file_record['source_path'], 
-                                        file_path
-                                    )
-                            
-                        except Exception as e:
-                            error_msg = f"Error removing files for '{mod['mod_name']}': {e}"
-                            errors.append(error_msg)
-                            logger.error(error_msg)
+                if not enabled_mods:
+                    self.root.after(0, lambda: self.status_bar.set_status("No mods enabled to deploy"))
+                    return
                 
-                # Deploy files from enabled mods
-                if enabled_mods:
-                    total_mods = len(enabled_mods)
-                    
-                    for i, mod in enumerate(enabled_mods):
-                        try:
-                            progress = int(((i + 1) / total_mods) * 100)
-                            self.root.after(0, lambda p=progress: self.status_bar.set_progress(p))
-                            self.root.after(0, lambda m=mod: self.status_bar.set_status(f"Deploying {m['mod_name']}..."))
+                # Deploy files from enabled mods using new backup/wipe approach
+                total_mods = len(enabled_mods)
+                
+                for i, mod in enumerate(enabled_mods):
+                    try:
+                        progress = int(((i + 1) / total_mods) * 100)
+                        self.root.after(0, lambda p=progress: self.status_bar.set_progress(p))
+                        self.root.after(0, lambda m=mod: self.status_bar.set_status(f"Deploying {m['mod_name']}..."))
+                        
+                        # Get mod archive
+                        archives = self.archive_manager.get_mod_archives(mod['id'])
+                        if not archives:
+                            errors.append(f"No archive found for mod '{mod['mod_name']}'")
+                            continue
+                        
+                        # Build full archive path
+                        archive_filename = archives[0]['file_name']
+                        archive_path = os.path.join(config.DEFAULT_MODS_DIR, archive_filename)
+                        
+                        # Get deployment selections
+                        selections = self.deployment_manager.get_deployment_selections(mod['id'])
+                        if not selections:
+                            errors.append(f"No file deployment configuration for mod '{mod['mod_name']}'. Please configure files first.")
+                            continue
+                        
+                        # Deploy files using new approach
+                        if selections:
+                            deployed_files = game_mgr.deploy_files(
+                                mod_id=mod['id'],
+                                archive_path=archive_path,
+                                selected_files=selections,
+                                backup_before_deploy=backup_before_deploy
+                            )
                             
-                            # Get mod archive
-                            archives = self.archive_manager.get_mod_archives(mod['id'])
-                            if not archives:
-                                errors.append(f"No archive found for mod '{mod['mod_name']}'")
-                                continue
-                            
-                            archive_path = archives[0]['file_path']
-                            
-                            # Get deployment selections
-                            selections = self.deployment_manager.get_deployment_selections(mod['id'])
-                            if not selections:
-                                # If no selections, skip this mod
-                                errors.append(f"No file deployment configuration for mod '{mod['mod_name']}'. Please configure files first.")
-                                continue
-                            
-                            # Deploy selected files
-                            selected_files = [sel['file_path'] for sel in selections if sel['selected']]
-                            
-                            if selected_files:
-                                deployment_result = self.file_manager.deploy_mod_files(
-                                    archive_path, 
-                                    selected_files,
-                                    target_directory=game_path
+                            # Record deployment in database
+                            for file_info in deployed_files:
+                                self.deployment_manager.add_deployed_file(
+                                    mod_id=mod['id'],
+                                    source_path=file_info['original_archive_path'],
+                                    deployed_path=file_info['deployed_path'],
+                                    original_backup_path=file_info.get('backup_path')
                                 )
-                                
-                                # Update deployed_files table
-                                for source_path, dest_path in deployment_result['deployed_files'].items():
-                                    self.deployment_manager.add_deployed_file(
-                                        mod['id'], 
-                                        source_path, 
-                                        dest_path
-                                    )
-                                
-                                deployed_count += 1
-                                
-                                # Add any warnings
-                                if deployment_result.get('warnings'):
-                                    for warning in deployment_result['warnings']:
-                                        errors.append(f"Warning for '{mod['mod_name']}': {warning}")
                             
-                        except Exception as e:
-                            error_msg = f"Error deploying '{mod['mod_name']}': {e}"
-                            errors.append(error_msg)
-                            logger.error(error_msg)
+                            # Count successful deployment
+                            if deployed_files:
+                                deployed_count += 1
+                        
+                    except Exception as e:
+                        error_msg = f"Error deploying '{mod['mod_name']}': {e}"
+                        errors.append(error_msg)
+                        logger.error(error_msg)
                 
                 # Show results on main thread
                 self.root.after(0, lambda: self.status_bar.set_progress(0))
@@ -1865,7 +1967,9 @@ class MainWindow:
             "Mod Management": [
                 ("F5", "Check for Updates"),
                 ("Ctrl+U", "Update All Mods"),
-                ("Ctrl+D", "Deploy Changes")
+                ("Ctrl+D", "Deploy Changes"),
+                ("Ctrl+Shift+E", "Enable All Mods"),
+                ("Ctrl+Shift+D", "Disable All Mods")
             ],
             "Navigation": [
                 ("Ctrl+S", "Open Settings"),

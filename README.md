@@ -6,12 +6,12 @@ A lightweight Windows desktop mod manager for "Stalker 2: Heart of Chornobyl" th
 
 - **Easy Mod Installation**: Add mods via Nexus Mods URL or local archive files
 - **Selective File Deployment**: Choose exactly which files from a mod to install
-- **Enable/Disable Mods**: Toggle mods on and off without removing them
+- **Enable/Disable Mods**: Toggle mods on and off instantly (changes staged until deployed)
 - **Automatic Updates**: Optionally check for mod updates on startup (configurable in settings)
 - **Bulk Operations**: Update all mods at once or individually
 - **Keyboard Shortcuts**: Quick access to common operations (Help > Keyboard Shortcuts)
 - **Modern UI**: Clean, dark-themed interface built with ttkbootstrap
-- **Safe Deployment**: Backup original files and manage conflicts
+- **Safe Deployment**: Use "Deploy Changes" to apply all staged changes with automatic backups
 
 ## Requirements
 
@@ -42,6 +42,15 @@ For Windows users, you can use the provided batch scripts:
    run.bat
    ```
 
+   Or with custom log level:
+   ```cmd
+   run.bat --log-level DEBUG
+   run.bat --log-level WARNING  
+   run.bat --log-level ERROR
+   ```
+
+   Available log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+
 ### Method 2: Manual Setup (All Platforms)
 
 1. Clone this repository:
@@ -69,6 +78,15 @@ For Windows users, you can use the provided batch scripts:
 4. Run the application:
    ```bash
    python main.py
+   ```
+
+   Set log level via environment variable:
+   ```bash
+   # Windows
+   set LOG_LEVEL=DEBUG && python main.py
+   
+   # Linux/macOS  
+   LOG_LEVEL=DEBUG python main.py
    ```
 
 ### Development Setup
@@ -390,15 +408,15 @@ python scripts/validate_api_compliance.py
 ### 🚧 **In Progress / Remaining Features**
 
 **Core Functionality Integration:**
-- Implement actual archive content reading for file deployment dialog
-- Connect mod enable/disable toggle functionality to file manager
-- Update mod status tracking after deployment operations
+- ✅ Archive content reading for file deployment dialog
+- ✅ Mod enable/disable toggle functionality connected to file manager  
+- ✅ Mod status tracking after deployment operations
 
 **File Management Operations:**
-- Connect deployed files tracking to UI display
+- ✅ Deployed files tracking connected to UI display
+- ✅ Mod deployment status indicators and progress tracking
+- ✅ Backup and restore operations through UI
 - Implement file conflict resolution UI workflows  
-- Add mod deployment status indicators and progress tracking
-- Implement backup and restore operations through UI
 - Add file integrity verification and repair tools
 
 **Application Lifecycle:**

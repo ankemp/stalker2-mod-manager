@@ -68,11 +68,12 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS deployed_files (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 mod_id INTEGER NOT NULL,
+                source_path TEXT NOT NULL,
                 deployed_path TEXT NOT NULL,
                 original_backup_path TEXT,
                 deployed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (mod_id) REFERENCES mods (id) ON DELETE CASCADE,
-                UNIQUE(deployed_path)
+                UNIQUE(mod_id, source_path)
             )
         """
     }
@@ -117,9 +118,40 @@ class DatabaseManager:
                 conn.commit()
                 logger.info("Database schema created successfully")
                 
+                # Apply any necessary migrations
+                self.apply_migrations(conn)
+                
         except sqlite3.Error as e:
             logger.error(f"Failed to create database schema: {e}")
             raise DatabaseError(f"Failed to create database: {e}")
+    
+    def apply_migrations(self, conn: sqlite3.Connection):
+        """Apply database schema migrations"""
+        try:
+            # Check if deployed_files table needs source_path column
+            cursor = conn.execute("PRAGMA table_info(deployed_files)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if 'source_path' not in columns:
+                logger.info("Applying migration: Adding source_path column to deployed_files")
+                
+                # Add the source_path column
+                conn.execute("ALTER TABLE deployed_files ADD COLUMN source_path TEXT")
+                
+                # Update existing records to have a source_path (use deployed_path as fallback)
+                conn.execute("""
+                    UPDATE deployed_files 
+                    SET source_path = deployed_path 
+                    WHERE source_path IS NULL
+                """)
+                
+                conn.commit()
+                logger.info("Migration completed: deployed_files table updated")
+        
+        except sqlite3.Error as e:
+            logger.error(f"Failed to apply migrations: {e}")
+            # Don't raise exception here, as migrations should be non-critical
+            logger.warning("Continuing without migrations")
     
     def _create_indexes(self, conn: sqlite3.Connection):
         """Create database indexes for better performance"""
@@ -864,17 +896,83 @@ class DeploymentManager:
             logger.error(f"Failed to clear deployment selections for mod {mod_id}: {e}")
             raise
     
-    def add_deployed_file(self, mod_id: int, deployed_path: str, 
+    def add_deployed_file(self, mod_id: int, source_path: str, deployed_path: str, 
                          original_backup_path: Optional[str] = None) -> None:
         """Record a deployed file"""
         try:
-            self.db.execute_command(
-                "INSERT OR REPLACE INTO deployed_files (mod_id, deployed_path, original_backup_path) VALUES (?, ?, ?)",
-                (mod_id, deployed_path, original_backup_path)
-            )
-            logger.debug(f"Recorded deployed file '{deployed_path}' for mod {mod_id}")
+            self.db.execute_command("""
+                INSERT OR REPLACE INTO deployed_files 
+                (mod_id, source_path, deployed_path, original_backup_path, deployed_at)
+                VALUES (?, ?, ?, ?, datetime('now'))
+            """, (mod_id, source_path, deployed_path, original_backup_path))
+            
+            logger.debug(f"Recorded deployed file: {source_path} -> {deployed_path}")
         except DatabaseError as e:
             logger.error(f"Failed to record deployed file: {e}")
+            raise
+    
+    def remove_deployed_file(self, mod_id: int, source_path: str, deployed_path: str) -> Optional[Dict[str, Any]]:
+        """Remove a deployed file record and return its info"""
+        try:
+            # Get the record first
+            results = self.db.execute_query("""
+                SELECT * FROM deployed_files 
+                WHERE mod_id = ? AND source_path = ? AND deployed_path = ?
+            """, (mod_id, source_path, deployed_path))
+            
+            if not results:
+                return None
+            
+            file_info = results[0] 
+            
+            # Remove the record
+            self.db.execute_command("""
+                DELETE FROM deployed_files 
+                WHERE mod_id = ? AND source_path = ? AND deployed_path = ?
+            """, (mod_id, source_path, deployed_path))
+            
+            logger.debug(f"Removed deployed file record: {deployed_path}")
+            return file_info
+            
+        except DatabaseError as e:
+            logger.error(f"Failed to remove deployed file record: {e}")
+            raise
+    
+    def get_deployed_files(self, mod_id: int) -> List[Dict[str, Any]]:
+        """Get all deployed files for a mod"""
+        try:
+            return self.db.execute_query(
+                "SELECT * FROM deployed_files WHERE mod_id = ? ORDER BY deployed_path",
+                (mod_id,)
+            )
+        except DatabaseError as e:
+            logger.error(f"Failed to get deployed files for mod {mod_id}: {e}")
+            return []
+    
+    def get_file_conflicts(self, deployed_path: str) -> List[Dict[str, Any]]:
+        """Get all mods that have deployed the same file path"""
+        try:
+            return self.db.execute_query("""
+                SELECT df.*, m.mod_name 
+                FROM deployed_files df
+                JOIN mods m ON df.mod_id = m.id
+                WHERE df.deployed_path = ?
+            """, (deployed_path,))
+        except DatabaseError as e:
+            logger.error(f"Failed to get file conflicts for '{deployed_path}': {e}")
+            return []
+    
+    def clear_deployed_files(self, mod_id: int) -> int:
+        """Clear all deployed file records for a mod"""
+        try:
+            affected = self.db.execute_command(
+                "DELETE FROM deployed_files WHERE mod_id = ?",
+                (mod_id,)
+            )
+            logger.info(f"Cleared {affected} deployed file records for mod {mod_id}")
+            return affected
+        except DatabaseError as e:
+            logger.error(f"Failed to clear deployed files for mod {mod_id}: {e}")
             raise
     
     def get_deployed_files(self, mod_id: int) -> List[Dict[str, Any]]:

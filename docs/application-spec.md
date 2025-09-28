@@ -29,7 +29,7 @@ The application is for players of Stalker 2 on PC who use mods from Nexus Mods a
 2. **Add Mod via URL/Local File:** Supports adding mods from a Nexus URL or a local .zip archive.  
 3. **Installed Mod List:** The main UI will display a list of all installed mods, their version, and enable/disable status.  
 4. **Mod Details View:** A dedicated panel to show details for a selected mod, including its description, versions, and file manifest.  
-5. **Staged Enable/Disable Toggling:** Users can enable or disable mods. Changes are staged and applied only when the user chooses to deploy.  
+5. **Staged Enable/Disable Toggling:** Users can enable or disable mods instantly. These changes are staged in the database and only applied to the game directory when the user clicks "Deploy Changes". This allows for batch operations and gives users control over when files are actually modified.  
 6. **Selective File Deployment:** On first enablement, the application displays the mod archive's file-tree, allowing the user to select which specific files and folders to deploy. This deployment manifest is saved for each mod.  
 7. **Mod Archive Versioning:** All downloaded mod archives are stored locally, allowing for future features like version reverting.  
 8. **Automatic Update Checking:** Optionally checks for newer versions of linked mods on Nexus Mods on application startup (user configurable). Individual mod updates can be performed on-demand or all mods can be updated at once.  
@@ -40,8 +40,8 @@ The application is for players of Stalker 2 on PC who use mods from Nexus Mods a
 * **As a user, I want to** paste a URL from a Nexus Mods page **so that** the manager can automatically download and install that mod for me.  
 * **As a user, I want to** drag and drop a mod zip file I already downloaded **so that** the manager can install it for me.  
 * **As a user, I want to** see all the files inside a mod's archive **so that** I can choose exactly which components to install.  
-* **As a user, I want to** enable and disable mods with a checkbox **so that** I can easily manage my active mod list.  
-* **As a user, I want to** click a "Deploy Changes" button **so that** all the mods I've enabled or disabled are applied at once.  
+* **As a user, I want to** enable and disable mods with a checkbox **so that** I can easily manage my active mod list without immediately affecting my game files.
+* **As a user, I want to** click a "Deploy Changes" button **so that** all the mods I've enabled or disabled are applied to the game directory at once.
 * **As a user, I want to** see at a glance which of my mods are outdated **so that** I can easily keep my game current.
 * **As a user, I want to** control whether the application checks for updates automatically on startup **so that** I can manage my internet usage and startup time.
 * **As a user, I want to** update individual mods or all mods at once **so that** I have flexibility in managing my mod updates.
@@ -63,6 +63,8 @@ The application provides keyboard shortcuts for common operations to improve use
 - **F5** - Check for Updates
 - **Ctrl+U** - Update All Mods
 - **Ctrl+D** - Deploy Changes
+- **Ctrl+Shift+E** - Enable All Mods
+- **Ctrl+Shift+D** - Disable All Mods
 
 #### **Navigation**
 - **Ctrl+S** - Open Settings

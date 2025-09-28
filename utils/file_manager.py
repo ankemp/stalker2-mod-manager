@@ -18,6 +18,197 @@ import stat
 import config
 
 
+class FileDeploymentManager:
+    """Manages actual file deployment and mod enabling/disabling"""
+    
+    def __init__(self, game_path: str, mods_path: str, backup_path: str):
+        """Initialize the file deployment manager"""
+        self.game_path = Path(game_path)
+        self.mods_path = Path(mods_path)
+        self.backup_path = Path(backup_path)
+        self.logger = logging.getLogger(__name__)
+        
+        # Ensure directories exist
+        self.backup_path.mkdir(parents=True, exist_ok=True)
+    
+    def deploy_mod_files(self, mod_id: int, archive_path: str, selected_files: List[str], 
+                        deployment_manager) -> Dict[str, Any]:
+        """Deploy selected files from a mod archive to the game directory"""
+        try:
+            archive_path = Path(archive_path)
+            if not archive_path.exists():
+                raise FileNotFoundError(f"Archive not found: {archive_path}")
+            
+            results = {
+                "deployed_files": {},
+                "backed_up_files": {},
+                "skipped_files": {},
+                "errors": []
+            }
+            
+            # Extract archive to temporary directory
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                
+                # Extract archive
+                self._extract_archive_to_temp(archive_path, temp_path)
+                
+                # Deploy each selected file
+                for file_path in selected_files:
+                    try:
+                        source_file = temp_path / file_path
+                        if not source_file.exists():
+                            results["errors"].append(f"File not found in archive: {file_path}")
+                            continue
+                        
+                        # Determine target path in game directory
+                        target_file = self.game_path / file_path
+                        
+                        # Create target directory if needed
+                        target_file.parent.mkdir(parents=True, exist_ok=True)
+                        
+                        # Backup original file if it exists
+                        backup_path = None
+                        if target_file.exists():
+                            backup_path = self._backup_original_file(target_file, mod_id)
+                            if backup_path:
+                                results["backed_up_files"][str(target_file)] = str(backup_path)
+                        
+                        # Copy the file
+                        shutil.copy2(source_file, target_file)
+                        results["deployed_files"][file_path] = str(target_file)
+                        
+                        # Record deployment in database
+                        deployment_manager.add_deployed_file(
+                            mod_id=mod_id,
+                            source_path=file_path,
+                            deployed_path=str(target_file),
+                            original_backup_path=str(backup_path) if backup_path else None
+                        )
+                        
+                        self.logger.debug(f"Deployed: {file_path} -> {target_file}")
+                        
+                    except Exception as e:
+                        error_msg = f"Failed to deploy {file_path}: {e}"
+                        results["errors"].append(error_msg)
+                        self.logger.error(error_msg)
+            
+            # Log summary
+            deployed_count = len(results["deployed_files"])
+            error_count = len(results["errors"])
+            self.logger.info(f"Deployment complete for mod {mod_id}: {deployed_count} files deployed, {error_count} errors")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Deployment failed for mod {mod_id}: {e}")
+            raise
+    
+    def undeploy_mod_files(self, mod_id: int, deployment_manager) -> Dict[str, Any]:
+        """Remove deployed files for a mod and restore backups"""
+        try:
+            results = {
+                "removed_files": [],
+                "restored_files": [],
+                "errors": []
+            }
+            
+            # Get all deployed files for this mod
+            deployed_files = deployment_manager.get_deployed_files(mod_id)
+            
+            for file_record in deployed_files:
+                try:
+                    deployed_path = Path(file_record["deployed_path"])
+                    backup_path = file_record.get("original_backup_path")
+                    
+                    # Remove the deployed file if it exists
+                    if deployed_path.exists():
+                        deployed_path.unlink()
+                        results["removed_files"].append(str(deployed_path))
+                        self.logger.debug(f"Removed deployed file: {deployed_path}")
+                    
+                    # Restore backup if it exists
+                    if backup_path and Path(backup_path).exists():
+                        shutil.copy2(backup_path, deployed_path)
+                        results["restored_files"].append(str(deployed_path))
+                        self.logger.debug(f"Restored backup: {backup_path} -> {deployed_path}")
+                        
+                        # Remove the backup file
+                        Path(backup_path).unlink()
+                    
+                    # Remove the deployment record
+                    deployment_manager.remove_deployed_file(
+                        mod_id, 
+                        file_record["source_path"], 
+                        file_record["deployed_path"]
+                    )
+                    
+                except Exception as e:
+                    error_msg = f"Failed to undeploy {file_record.get('deployed_path', 'unknown')}: {e}"
+                    results["errors"].append(error_msg)
+                    self.logger.error(error_msg)
+            
+            # Log summary
+            removed_count = len(results["removed_files"])
+            restored_count = len(results["restored_files"])
+            error_count = len(results["errors"])
+            self.logger.info(f"Undeployment complete for mod {mod_id}: {removed_count} files removed, {restored_count} backups restored, {error_count} errors")
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Undeployment failed for mod {mod_id}: {e}")
+            raise
+    
+    def _extract_archive_to_temp(self, archive_path: Path, temp_path: Path):
+        """Extract archive to temporary directory"""
+        try:
+            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+                zip_ref.extractall(temp_path)
+        except zipfile.BadZipFile:
+            raise ValueError(f"Invalid or corrupted archive: {archive_path}")
+    
+    def _backup_original_file(self, original_file: Path, mod_id: int) -> Optional[Path]:
+        """Create backup of original file"""
+        try:
+            # Create backup directory structure
+            relative_path = original_file.relative_to(self.game_path)
+            backup_file = self.backup_path / f"mod_{mod_id}" / relative_path
+            
+            # Create backup directory
+            backup_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Copy original file to backup
+            shutil.copy2(original_file, backup_file)
+            
+            self.logger.debug(f"Backed up: {original_file} -> {backup_file}")
+            return backup_file
+            
+        except Exception as e:
+            self.logger.error(f"Failed to backup file {original_file}: {e}")
+            return None
+    
+    def get_deployment_conflicts(self, file_path: str, deployment_manager) -> List[Dict[str, Any]]:
+        """Check if a file path conflicts with other mod deployments"""
+        try:
+            conflicts = deployment_manager.get_file_conflicts(file_path)
+            return conflicts
+        except Exception as e:
+            self.logger.error(f"Failed to check conflicts for {file_path}: {e}")
+            return []
+    
+    def validate_game_directory(self) -> bool:
+        """Validate that the game directory is valid"""
+        try:
+            # Check for key Stalker 2 files
+            stalker_exe = self.game_path / "Stalker2-Win64-Shipping.exe"
+            stalker_dir = self.game_path / "Stalker2"
+            
+            return stalker_exe.exists() and stalker_dir.exists()
+        except Exception:
+            return False
+
+
 class ArchiveManager:
     """Manages mod archive files"""
     
@@ -254,13 +445,15 @@ class GameDirectoryManager:
     def __init__(self, game_directory: str):
         """Initialize with the game installation directory"""
         self.game_directory = Path(game_directory)
+        # Set up the mods directory for deployment
+        self.mods_directory = self.game_directory / "Stalker2" / "Content" / "Paks" / "~mods"
         self.backup_directory = self.game_directory / "_mod_manager_backups"
         self.backup_directory.mkdir(exist_ok=True)
         self.logger = logging.getLogger(__name__)
     
     def deploy_files(self, mod_id: int, archive_path: str, 
-                    selected_files: List[str]) -> List[str]:
-        """Deploy selected files from a mod archive to the game directory"""
+                    selected_files: List[str], backup_before_deploy: bool = True) -> List[str]:
+        """Deploy selected files from a mod archive to the game mods directory"""
         archive_path = Path(archive_path)
         
         if not archive_path.exists():
@@ -268,6 +461,16 @@ class GameDirectoryManager:
         
         if not self.validate_game_directory():
             raise RuntimeError("Invalid game directory")
+        
+        # Backup and wipe existing mods directory on first deployment for this session
+        if not hasattr(self, '_mods_directory_cleaned') and self.mods_directory.exists():
+            if backup_before_deploy:
+                self._backup_mods_directory()
+            self._wipe_mods_directory()
+            self._mods_directory_cleaned = True
+        
+        # Ensure mods directory exists
+        self.mods_directory.mkdir(parents=True, exist_ok=True)
         
         deployed_files = []
         
@@ -277,17 +480,12 @@ class GameDirectoryManager:
                     try:
                         # Normalize the path
                         normalized_path = file_path.replace('/', os.sep)
-                        target_path = self.game_directory / normalized_path
+                        target_path = self.mods_directory / normalized_path
                         
                         # Create directory structure if needed
                         target_path.parent.mkdir(parents=True, exist_ok=True)
                         
-                        # Backup original file if it exists
-                        backup_path = None
-                        if target_path.exists():
-                            backup_path = self._backup_file(target_path, mod_id)
-                        
-                        # Extract and copy the file
+                        # Extract and copy the file directly (no backup needed since we wiped the directory)
                         with zip_ref.open(file_path) as source:
                             with open(target_path, 'wb') as target:
                                 shutil.copyfileobj(source, target)
@@ -296,7 +494,7 @@ class GameDirectoryManager:
                         deployment_info = {
                             'deployed_path': str(target_path),
                             'original_archive_path': file_path,
-                            'backup_path': backup_path,
+                            'backup_path': None,  # No individual file backups since we backup entire directory
                             'deployed_at': datetime.now().isoformat()
                         }
                         
@@ -315,6 +513,55 @@ class GameDirectoryManager:
             self.logger.error(f"Error deploying files from {archive_path}: {e}")
             # Cleanup any partially deployed files
             self._cleanup_partial_deployment(deployed_files)
+            raise
+    
+    def reset_deployment_session(self):
+        """Reset the deployment session flag to allow backup/wipe on next deployment"""
+        if hasattr(self, '_mods_directory_cleaned'):
+            delattr(self, '_mods_directory_cleaned')
+        
+    def _backup_mods_directory(self):
+        """Backup the existing mods directory to a timestamped zip file"""
+        if not self.mods_directory.exists():
+            return
+        
+        # Create timestamp for backup
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"~mods.{timestamp}.zip"
+        backup_path = self.backup_directory / backup_name
+        
+        try:
+            # Create the backup zip
+            with zipfile.ZipFile(backup_path, 'w', zipfile.ZIP_DEFLATED) as zip_ref:
+                for file_path in self.mods_directory.rglob('*'):
+                    if file_path.is_file():
+                        # Calculate relative path from mods directory
+                        relative_path = file_path.relative_to(self.mods_directory)
+                        zip_ref.write(file_path, relative_path)
+            
+            self.logger.info(f"Backed up existing mods directory to: {backup_path}")
+            
+        except Exception as e:
+            self.logger.error(f"Error creating mods directory backup: {e}")
+            # Continue with deployment even if backup fails
+    
+    def _wipe_mods_directory(self):
+        """Remove all contents of the mods directory"""
+        if not self.mods_directory.exists():
+            return
+        
+        try:
+            # Remove all contents of the mods directory
+            for item in self.mods_directory.iterdir():
+                if item.is_file():
+                    item.unlink()
+                elif item.is_dir():
+                    shutil.rmtree(item)
+            
+            self.logger.info("Wiped existing mods directory contents")
+            
+        except Exception as e:
+            self.logger.error(f"Error wiping mods directory: {e}")
             raise
     
     def remove_deployed_files(self, deployed_files: List[str]) -> None:

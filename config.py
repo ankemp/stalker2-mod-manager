@@ -5,6 +5,7 @@ Configuration settings for Stalker 2 Mod Manager
 import os
 import sys
 from pathlib import Path
+import tkinter as tk
 
 # Application metadata
 APP_NAME = "Stalker 2 Mod Manager"
@@ -37,6 +38,19 @@ def get_local_app_data_dir():
     
     # Fallback for non-Windows
     return os.path.join(os.path.expanduser("~"), f".cache/{APP_NAME.lower()}")
+
+def set_window_icon(window):
+    """Set the application icon for a window"""
+    try:
+        # Try to use the logo.png file
+        logo_path = os.path.join(os.path.dirname(__file__), "gui", "logo.png")
+        if os.path.exists(logo_path):
+            icon_image = tk.PhotoImage(file=logo_path)
+            window.iconphoto(True, icon_image)
+            return True
+    except Exception as e:
+        print(f"Warning: Could not set window icon: {e}")
+    return False
 
 # Application directories using Windows best practices
 APP_DATA_DIR = get_app_data_dir()

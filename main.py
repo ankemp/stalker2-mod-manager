@@ -32,6 +32,9 @@ def main():
         root.geometry(f"{config.WINDOW_DEFAULT_SIZE[0]}x{config.WINDOW_DEFAULT_SIZE[1]}")
         root.minsize(config.WINDOW_MIN_SIZE[0], config.WINDOW_MIN_SIZE[1])
         
+        # Set application icon
+        config.set_window_icon(root)
+        
         logger.info(f"Created main window with theme: {config.DEFAULT_THEME}")
         logger.info(f"Window size: {config.WINDOW_DEFAULT_SIZE}")
         

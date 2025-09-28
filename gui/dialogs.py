@@ -454,6 +454,12 @@ class SettingsDialog(BaseDialog):
             self.confirm_actions_var.set(self.config_manager.get_confirm_actions())
             self.show_notifications_var.set(self.config_manager.get_show_notifications())
             
+            # Load backup setting, default to True if not set
+            try:
+                self.backup_before_deploy_var.set(self.config_manager.get_config('backup_before_deploy', default=True))
+            except:
+                self.backup_before_deploy_var.set(True)
+            
             api_key = self.config_manager.get_api_key()
             if api_key:
                 self.api_key_var.set(api_key)
@@ -549,6 +555,24 @@ class SettingsDialog(BaseDialog):
             width=10
         ).pack(side=LEFT, padx=(10, 0))
         
+        # Deployment settings
+        deployment_frame = ttk_bootstrap.LabelFrame(parent, text="Deployment Settings")
+        deployment_frame.pack(fill=X, padx=10, pady=10)
+        
+        self.backup_before_deploy_var = tk.BooleanVar(value=True)
+        ttk_bootstrap.Checkbutton(
+            deployment_frame,
+            text="Backup existing mods directory before deployment",
+            variable=self.backup_before_deploy_var
+        ).pack(anchor=W, padx=10, pady=5)
+        
+        ttk_bootstrap.Label(
+            deployment_frame,
+            text="When enabled, the old ~mods directory will be zipped with a timestamp\nbefore being wiped and replaced with new mod deployments.",
+            font=("TkDefaultFont", 8),
+            foreground="gray"
+        ).pack(anchor=W, padx=10, pady=(0, 10))
+
         # UI settings
         ui_frame = ttk_bootstrap.LabelFrame(parent, text="Interface")
         ui_frame.pack(fill=X, padx=10, pady=10)
@@ -1049,6 +1073,7 @@ Note: Rate limits are shared across all applications using your API key."""
             "update_interval": self.update_interval_var.get(),
             "confirm_actions": self.confirm_actions_var.get(),
             "show_notifications": self.show_notifications_var.get(),
+            "backup_before_deploy": self.backup_before_deploy_var.get(),
             "api_key": self.api_key_var.get().strip(),
             "game_path": self.game_path_var.get().strip(),
             "mods_path": self.mods_path_var.get().strip()
@@ -1153,22 +1178,218 @@ class DeploymentSelectionDialog(BaseDialog):
     
     def populate_file_tree(self):
         """Populate the file tree with mod archive contents"""
-        # TODO: Replace with actual archive reading logic
-        # For now, show message that archive reading needs to be implemented
-        root_item = self.tree.insert("", "end", text="Archive Reading Not Implemented", 
+        try:
+            # Get the active archive for this mod
+            mod_id = self.mod_data.get("id")
+            if not mod_id:
+                self._show_error_state("No mod ID available")
+                return
+            
+            # Get archive manager from parent (main window)
+            archive_manager = None
+            if hasattr(self.parent, 'archive_manager'):
+                archive_manager = self.parent.archive_manager
+            else:
+                # Try to get it from the main window through config manager
+                try:
+                    from database.models import ArchiveManager, DatabaseManager
+                    import config
+                    db_manager = DatabaseManager(config.DEFAULT_DATABASE_PATH)
+                    archive_manager = ArchiveManager(db_manager)
+                except Exception as e:
+                    self._show_error_state(f"Cannot access archive manager: {e}")
+                    return
+            
+            # Get active archive for this mod
+            active_archive = archive_manager.get_active_archive(mod_id)
+            if not active_archive:
+                self._show_error_state("No archive found for this mod")
+                return
+            
+            # Build full path to archive file
+            import config
+            import os
+            archive_path = os.path.join(config.DEFAULT_MODS_DIR, active_archive['file_name'])
+            
+            if not os.path.exists(archive_path):
+                self._show_error_state(f"Archive file not found: {active_archive['file_name']}")
+                return
+                
+            # Get file manager to extract archive contents
+            try:
+                from utils.file_manager import ArchiveManager as FileArchiveManager
+                file_archive_manager = FileArchiveManager(config.DEFAULT_MODS_DIR)
+                archive_contents = file_archive_manager.extract_archive_contents(archive_path)
+            except Exception as e:
+                self._show_error_state(f"Failed to read archive: {e}")
+                return
+            
+            if not archive_contents:
+                self._show_error_state("Archive is empty or unreadable")
+                return
+            
+            # Clear existing items
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            # Get existing deployment selections
+            deployment_manager = getattr(self.parent, 'deployment_manager', None)
+            selected_files = set()
+            if deployment_manager:
+                selected_files = set(deployment_manager.get_deployment_selections(mod_id))
+            
+            # Build tree structure
+            self.tree_items = {}
+            folder_items = {}
+            
+            # Sort files by directory structure
+            archive_contents.sort(key=lambda x: (x['directory'], x['filename']))
+            
+            for file_info in archive_contents:
+                file_path = file_info['path']
+                directory = file_info['directory']
+                filename = file_info['filename']
+                size = file_info['size']
+                
+                # Create directory nodes if needed
+                if directory and directory not in folder_items:
+                    dir_parts = directory.split(os.sep)
+                    current_path = ""
+                    parent_item = ""
+                    
+                    for part in dir_parts:
+                        if current_path:
+                            current_path += os.sep + part
+                        else:
+                            current_path = part
+                            
+                        if current_path not in folder_items:
+                            folder_item = self.tree.insert(
+                                parent_item, "end",
+                                text=f"📁 {part}",
+                                values=("Folder", ""),
+                                tags=("folder",)
+                            )
+                            folder_items[current_path] = folder_item
+                            
+                            # Track folder for selection
+                            self.tree_items[folder_item] = {
+                                "id": folder_item,
+                                "path": current_path,
+                                "type": "folder",
+                                "checked": current_path in selected_files,
+                                "children": []
+                            }
+                        
+                        parent_item = folder_items[current_path]
+                
+                # Create file item
+                parent_item = folder_items.get(directory, "")
+                
+                # Format file size
+                size_text = self._format_file_size(size)
+                
+                # Determine file icon based on extension
+                icon = self._get_file_icon(file_info['extension'])
+                
+                # Check if file is selected
+                is_selected = file_path in selected_files
+                
+                file_item = self.tree.insert(
+                    parent_item, "end",
+                    text=f"{'☑️' if is_selected else '☐'} {icon} {filename}",
+                    values=(size_text, file_info['extension']),
+                    tags=("file", "selected" if is_selected else "unselected")
+                )
+                
+                # Track file for selection
+                self.tree_items[file_item] = {
+                    "id": file_item,
+                    "path": file_path,
+                    "type": "file",
+                    "checked": is_selected,
+                    "size": size,
+                    "info": file_info
+                }
+                
+                # Add to parent folder's children if applicable
+                if directory and directory in folder_items:
+                    parent_folder_id = folder_items[directory]
+                    if parent_folder_id in self.tree_items:
+                        self.tree_items[parent_folder_id]["children"].append(file_item)
+            
+            # Configure tree tags for visual styling
+            self.tree.tag_configure("folder", foreground="blue", font=("TkDefaultFont", 9, "bold"))
+            self.tree.tag_configure("selected", foreground="green")
+            self.tree.tag_configure("unselected", foreground="black")
+            
+            # Expand top-level folders by default
+            for item in self.tree.get_children():
+                self.tree.item(item, open=True)
+                
+            print(f"Loaded {len(archive_contents)} files from archive: {active_archive['file_name']}")
+            
+        except Exception as e:
+            print(f"Error populating file tree: {e}")
+            import traceback
+            traceback.print_exc()
+            self._show_error_state(f"Error loading archive: {e}")
+    
+    def _show_error_state(self, error_message: str):
+        """Show error state in the file tree"""
+        # Clear existing items
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        # Show error message
+        error_item = self.tree.insert("", "end", text=f"❌ {error_message}", 
+                                    values=("Error", ""), tags=("error",))
+        
+        help_item = self.tree.insert("", "end", text="• Check that the mod archive file exists", 
                                     values=("", ""), tags=("info",))
         
-        help_item = self.tree.insert("", "end", text="• Archive content reading will be implemented", 
-                                    values=("", ""), tags=("info",))
-        
-        help_item2 = self.tree.insert("", "end", text="• For now, all files will be selected by default", 
+        help_item2 = self.tree.insert("", "end", text="• Try re-downloading the mod if needed", 
                                      values=("", ""), tags=("info",))
         
-        # Configure tag for info messages
+        # Configure error styling
+        self.tree.tag_configure("error", foreground="red", font=("TkDefaultFont", 9, "bold"))
         self.tree.tag_configure("info", foreground="gray", font=("TkDefaultFont", 9, "italic"))
         
         # Initialize empty tree items
         self.tree_items = {}
+    
+    def _format_file_size(self, size_bytes: int) -> str:
+        """Format file size in human readable format"""
+        if size_bytes < 1024:
+            return f"{size_bytes} B"
+        elif size_bytes < 1024 * 1024:
+            return f"{size_bytes / 1024:.1f} KB"
+        elif size_bytes < 1024 * 1024 * 1024:
+            return f"{size_bytes / (1024 * 1024):.1f} MB"
+        else:
+            return f"{size_bytes / (1024 * 1024 * 1024):.1f} GB"
+    
+    def _get_file_icon(self, extension: str) -> str:
+        """Get appropriate icon for file extension"""
+        extension = extension.lower()
+        
+        # Common game file types
+        if extension in ['.pak', '.archive', '.zip', '.rar', '.7z']:
+            return "📦"
+        elif extension in ['.exe', '.dll']:
+            return "⚙️"
+        elif extension in ['.txt', '.md', '.readme']:
+            return "📄"
+        elif extension in ['.ini', '.cfg', '.config', '.xml', '.json']:
+            return "⚙️"
+        elif extension in ['.png', '.jpg', '.jpeg', '.bmp', '.tga', '.dds']:
+            return "🖼️"
+        elif extension in ['.wav', '.mp3', '.ogg']:
+            return "🔊"
+        elif extension in ['.lua', '.py', '.js']:
+            return "📜"
+        else:
+            return "📄"
     
     def on_tree_click(self, event):
         """Handle tree item clicks for checkbox functionality, but ignore expand/collapse arrow clicks."""
@@ -1181,21 +1402,100 @@ class DeploymentSelectionDialog(BaseDialog):
             self.toggle_item(item)
     
     def toggle_item(self, item_id, recursive=True):
-        """Toggle the checked state of a tree item (not implemented for null state)"""
-        # Since we're in a null state with no actual files, do nothing
-        pass
+        """Toggle the checked state of a tree item"""
+        if item_id not in self.tree_items:
+            return
+        
+        item_data = self.tree_items[item_id]
+        
+        # Toggle the checked state
+        item_data["checked"] = not item_data["checked"]
+        
+        # Update visual display
+        self._update_item_display(item_id)
+        
+        # If this is a folder and recursive is True, toggle all children
+        if item_data["type"] == "folder" and recursive and "children" in item_data:
+            for child_id in item_data["children"]:
+                if child_id in self.tree_items:
+                    self.tree_items[child_id]["checked"] = item_data["checked"]
+                    self._update_item_display(child_id)
+        
+        # If this is a file, check if we need to update parent folder state
+        elif item_data["type"] == "file":
+            self._update_parent_folder_state(item_id)
+    
+    def _update_item_display(self, item_id):
+        """Update the visual display of a tree item"""
+        if item_id not in self.tree_items:
+            return
+            
+        item_data = self.tree_items[item_id]
+        current_text = self.tree.item(item_id, "text")
+        
+        if item_data["type"] == "file":
+            # Extract the filename part (after the checkbox and icon)
+            parts = current_text.split(" ", 2)
+            if len(parts) >= 3:
+                icon_and_name = parts[1] + " " + parts[2]
+                new_text = f"{'☑️' if item_data['checked'] else '☐'} {icon_and_name}"
+            else:
+                # Fallback
+                new_text = f"{'☑️' if item_data['checked'] else '☐'} {current_text.split(' ', 1)[-1]}"
+            
+            # Update text and tags
+            self.tree.item(item_id, text=new_text)
+            tags = ["file", "selected" if item_data["checked"] else "unselected"]
+            self.tree.item(item_id, tags=tags)
+        
+        elif item_data["type"] == "folder":
+            # For folders, we could show a different indicator based on partial selection
+            # But for now, just update tags
+            tags = ["folder", "selected" if item_data["checked"] else "unselected"]
+            self.tree.item(item_id, tags=tags)
+    
+    def _update_parent_folder_state(self, file_item_id):
+        """Update parent folder checkbox state based on children"""
+        # Find the parent folder
+        parent_id = self.tree.parent(file_item_id)
+        if not parent_id or parent_id not in self.tree_items:
+            return
+        
+        parent_data = self.tree_items[parent_id]
+        if parent_data["type"] != "folder":
+            return
+        
+        # Check state of all children
+        if "children" in parent_data:
+            children_states = []
+            for child_id in parent_data["children"]:
+                if child_id in self.tree_items:
+                    children_states.append(self.tree_items[child_id]["checked"])
+            
+            if children_states:
+                # If all children are checked, check the parent
+                # If no children are checked, uncheck the parent
+                # (For mixed states, we'll keep current state for simplicity)
+                if all(children_states):
+                    parent_data["checked"] = True
+                elif not any(children_states):
+                    parent_data["checked"] = False
+                
+                self._update_item_display(parent_id)
     
     def select_all(self):
         """Select all items in the tree"""
-        for item_data in self.tree_items.values():
+        for item_id, item_data in self.tree_items.items():
             if not item_data["checked"]:
-                self.toggle_item(item_data["id"])
+                item_data["checked"] = True
+                self._update_item_display(item_id)
     
     def select_none(self):
         """Deselect all items in the tree"""
-        for item_data in self.tree_items.values():
+        for item_id, item_data in self.tree_items.items():
             if item_data["checked"]:
-                self.toggle_item(item_data["id"])
+                item_data["checked"] = False
+                self._update_item_display(item_id)
     
     def expand_all(self):
         """Expand all tree items"""
@@ -1210,12 +1510,14 @@ class DeploymentSelectionDialog(BaseDialog):
     def get_result(self):
         """Return the selected files"""
         selected_files = []
-        for item_data in self.tree_items.values():
-            if item_data["checked"]:
+        
+        # Collect all selected files (not folders)
+        for item_id, item_data in self.tree_items.items():
+            if item_data["type"] == "file" and item_data["checked"]:
                 selected_files.append(item_data["path"])
         
         if not selected_files:
-            messagebox.showwarning("No Selection", "Please select at least one file or folder to deploy.")
+            messagebox.showwarning("No Selection", "Please select at least one file to deploy.")
             return None
         
         return {
