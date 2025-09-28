@@ -6,7 +6,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
-from gui.dialogs import AddModDialog, SettingsDialog, DeploymentSelectionDialog
+from gui.dialogs import AddModDialog, SettingsDialog, DeploymentSelectionDialog, ShutdownConfirmationDialog, TaskMonitorDialog
 from gui.components import ModListFrame, ModDetailsFrame, StatusBar
 import os
 
@@ -174,6 +174,8 @@ class MainWindow:
         menubar.add_cascade(label="Tools", menu=tools_menu)
         tools_menu.add_command(label="Check for Updates", command=self.check_for_updates)
         tools_menu.add_command(label="Deploy Changes", command=self.deploy_changes)
+        tools_menu.add_separator()
+        tools_menu.add_command(label="Task Monitor", command=self.show_task_monitor)
         tools_menu.add_separator()
         tools_menu.add_command(label="Open Game Directory", command=self.open_game_directory)
         tools_menu.add_command(label="Open Mods Directory", command=self.open_mods_directory)
@@ -352,8 +354,8 @@ class MainWindow:
     
     def download_mod_from_url(self, dialog_result):
         """Download and install mod from Nexus URL"""
-        import threading
         from api.nexus_api import NexusAPIError, ModDownloader
+        from utils.thread_manager import get_thread_manager, TaskType
         import config as app_config
         
         url = dialog_result['url']
@@ -484,9 +486,16 @@ class MainWindow:
                 finally:
                     self.root.after(0, lambda: self.status_bar.set_progress(0))
             
-            # Start download in background thread
-            thread = threading.Thread(target=download_thread, daemon=True)
-            thread.start()
+            # Create task using thread manager
+            thread_manager = get_thread_manager()
+            task_id = thread_manager.create_task(
+                task_type=TaskType.DOWNLOAD,
+                description=f"Downloading mod from Nexus: {url}",
+                target=download_thread,
+                can_cancel=True  # Downloads can be cancelled
+            )
+            
+            print(f"Started download task: {task_id}")
             
         except Exception as e:
             messagebox.showerror("Error", f"Error processing URL: {e}")
@@ -501,7 +510,7 @@ class MainWindow:
     
     def install_mod_from_file(self, dialog_result):
         """Install mod from local archive file"""
-        import threading
+        from utils.thread_manager import get_thread_manager, TaskType
         import os
         from pathlib import Path
         import config as app_config
@@ -618,9 +627,16 @@ class MainWindow:
                 self.root.after(0, lambda: messagebox.showerror("Installation Error", error_msg))
                 self.root.after(0, lambda: self.status_bar.set_status(error_msg))
         
-        # Start installation in background thread
-        thread = threading.Thread(target=install_thread, daemon=True)
-        thread.start()
+        # Create task using thread manager
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.INSTALL,
+            description=f"Installing mod from file: {os.path.basename(file_path)}",
+            target=install_thread,
+            can_cancel=True  # Installations can be cancelled
+        )
+        
+        print(f"Started installation task: {task_id}")
     
     def refresh_mod_list(self):
         """Refresh the mod list display"""
@@ -826,8 +842,8 @@ class MainWindow:
     
     def check_for_updates(self):
         """Check for updates for all mods"""
-        import threading
         from api.nexus_api import NexusAPIError
+        from utils.thread_manager import get_thread_manager, TaskType
         
         if not self.nexus_client:
             messagebox.showwarning("API Not Available", "No API key configured. Please go to Settings > Nexus API and add your API key.")
@@ -907,9 +923,16 @@ class MainWindow:
             finally:
                 self.root.after(0, lambda: self.status_bar.set_progress(0))
         
-        # Start update check in background thread
-        thread = threading.Thread(target=update_check_thread, daemon=True)
-        thread.start()
+        # Create task using thread manager
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.UPDATE_CHECK,
+            description="Checking all mods for updates",
+            target=update_check_thread,
+            can_cancel=True
+        )
+        
+        print(f"Started update check task: {task_id}")
     
     def show_update_results(self, updates_available, errors):
         """Show the results of update checking"""
@@ -1002,7 +1025,7 @@ class MainWindow:
     
     def deploy_changes(self):
         """Deploy all pending changes to the game directory"""
-        import threading
+        from utils.thread_manager import get_thread_manager, TaskType
         
         if not self.file_manager:
             messagebox.showerror("Error", "File manager not initialized. Please check your game path in settings.")
@@ -1138,9 +1161,16 @@ class MainWindow:
             finally:
                 self.root.after(0, lambda: self.status_bar.set_progress(0))
         
-        # Start deployment in background thread
-        thread = threading.Thread(target=deploy_thread, daemon=True)
-        thread.start()
+        # Create task using thread manager
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.DEPLOY,
+            description="Deploying mod changes to game directory",
+            target=deploy_thread,
+            can_cancel=False  # Deployments shouldn't be cancelled mid-way
+        )
+        
+        print(f"Started deployment task: {task_id}")
     
     def show_deployment_results(self, deployed_count, errors):
         """Show the results of deployment"""
@@ -1210,8 +1240,8 @@ class MainWindow:
     
     def update_mod(self, mod_data):
         """Update a specific mod to the latest version"""
-        import threading
         from api.nexus_api import NexusAPIError, ModDownloader
+        from utils.thread_manager import get_thread_manager, TaskType
         import config as app_config
         import os
         from pathlib import Path
@@ -1347,9 +1377,16 @@ class MainWindow:
             finally:
                 self.root.after(0, lambda: self.status_bar.set_progress(0))
         
-        # Start update in background thread
-        thread = threading.Thread(target=update_thread, daemon=True)
-        thread.start()
+        # Create task using thread manager
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.UPDATE_MOD,
+            description=f"Updating mod: {mod_data.get('mod_name', 'Unknown')}",
+            target=update_thread,
+            can_cancel=True
+        )
+        
+        print(f"Started mod update task: {task_id}")
     
     def open_game_directory(self):
         """Open the game directory in file explorer"""
@@ -1375,6 +1412,11 @@ class MainWindow:
         except Exception as e:
             self.status_bar.set_status(f"Failed to open mods directory: {e}")
     
+    def show_task_monitor(self):
+        """Show the task monitor dialog"""
+        dialog = TaskMonitorDialog(self.root)
+        dialog.show()
+    
     def show_about(self):
         """Show about dialog"""
         messagebox.showinfo(
@@ -1392,6 +1434,51 @@ class MainWindow:
     def close_application(self):
         """Properly close the application with cleanup"""
         try:
+            # Check for running background tasks
+            from utils.thread_manager import get_thread_manager
+            
+            thread_manager = get_thread_manager()
+            running_tasks = thread_manager.get_running_tasks()
+            
+            if running_tasks:
+                # Show shutdown confirmation dialog
+                dialog = ShutdownConfirmationDialog(self.root, running_tasks)
+                result = dialog.show()
+                
+                if result == "cancel":
+                    # User cancelled shutdown
+                    return
+                elif result == "wait":
+                    # Wait for tasks to complete
+                    self.status_bar.set_status("Waiting for background tasks to complete...")
+                    
+                    # Wait up to 30 seconds for tasks to complete
+                    if thread_manager.wait_for_all_tasks(timeout=30.0):
+                        self.status_bar.set_status("All tasks completed. Closing application...")
+                    else:
+                        # Tasks didn't complete in time, ask user again
+                        remaining_tasks = thread_manager.get_running_tasks()
+                        if remaining_tasks:
+                            dialog2 = ShutdownConfirmationDialog(self.root, remaining_tasks)
+                            result2 = dialog2.show()
+                            if result2 == "cancel":
+                                self.status_bar.set_status("Shutdown cancelled")
+                                return
+                            # If result2 is "shutdown", continue with shutdown
+                elif result == "shutdown":
+                    # User chose to force close
+                    pass
+                else:
+                    # Dialog was closed without selection, cancel shutdown
+                    return
+            
+            # Perform graceful shutdown of thread manager
+            print("Shutting down background tasks...")
+            shutdown_success = thread_manager.shutdown(timeout=5.0)
+            
+            if not shutdown_success:
+                print("Warning: Some background tasks may not have completed cleanly")
+            
             # Close database connections
             if hasattr(self, 'db_manager') and self.db_manager:
                 # The database connection is handled via context managers
@@ -1415,4 +1502,3 @@ class MainWindow:
             # Close the main window
             self.root.quit()
             self.root.destroy()
-        # TODO: Stop background threads

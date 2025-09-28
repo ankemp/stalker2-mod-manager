@@ -8,7 +8,9 @@ import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
 import threading
 import logging
+from typing import List, Optional
 from api.nexus_api import NexusModsClient, NexusAPIError
+from utils.thread_manager import BackgroundTask, get_thread_manager
 import config
 
 # Set up logging
@@ -654,9 +656,17 @@ class SettingsDialog(BaseDialog):
                 # Update UI on main thread
                 self.dialog.after(0, self._update_validation_error, f"Unexpected error: {e}")
         
-        # Start validation thread
-        thread = threading.Thread(target=validate_thread, daemon=True)
-        thread.start()
+        # Create task using thread manager
+        from utils.thread_manager import get_thread_manager, TaskType
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.API_VALIDATION,
+            description="Validating Nexus Mods API key",
+            target=validate_thread,
+            can_cancel=True
+        )
+        
+        print(f"Started API validation task: {task_id}")
     
     def _update_validation_success(self, user_info, rate_limits):
         """Update UI after successful API validation"""
@@ -762,8 +772,17 @@ class SettingsDialog(BaseDialog):
                     f"Could not retrieve rate limits:\n{e}"
                 ))
         
-        thread = threading.Thread(target=get_rate_limits, daemon=True)
-        thread.start()
+        # Create task using thread manager
+        from utils.thread_manager import get_thread_manager, TaskType
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.RATE_LIMIT_CHECK,
+            description="Checking API rate limits",
+            target=get_rate_limits,
+            can_cancel=True
+        )
+        
+        print(f"Started rate limit check task: {task_id}")
     
     def _show_rate_limits_dialog(self, rate_limits):
         """Show rate limits in a message dialog"""
@@ -1148,3 +1167,455 @@ class DeploymentSelectionDialog(BaseDialog):
             "mod_id": self.mod_data.get("id"),
             "selected_files": selected_files
         }
+
+
+class ShutdownConfirmationDialog:
+    """Dialog to confirm application shutdown when background tasks are running"""
+    
+    def __init__(self, parent, running_tasks: List[BackgroundTask]):
+        self.parent = parent
+        self.running_tasks = running_tasks
+        self.result = None
+        self.dialog = None
+        self.task_vars = {}  # Track which tasks user wants to cancel
+        
+    def show(self) -> Optional[str]:
+        """
+        Show the shutdown confirmation dialog.
+        
+        Returns:
+            'shutdown' - Proceed with shutdown (cancel tasks)
+            'wait' - Wait for tasks to complete  
+            'cancel' - Cancel shutdown, return to application
+            None - Dialog was closed without selection
+        """
+        self.dialog = tk.Toplevel(self.parent)
+        self.dialog.title("Background Tasks Running")
+        self.dialog.transient(self.parent)
+        self.dialog.grab_set()
+        self.dialog.resizable(False, False)
+        
+        # Set dialog size
+        self.dialog.geometry("600x400")
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = (self.parent.winfo_rootx() + self.parent.winfo_width() // 2 - 
+             self.dialog.winfo_width() // 2)
+        y = (self.parent.winfo_rooty() + self.parent.winfo_height() // 2 - 
+             self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        self._create_widgets()
+        
+        # Handle dialog close button
+        self.dialog.protocol("WM_DELETE_WINDOW", self._on_close)
+        
+        # Wait for dialog to complete
+        self.dialog.wait_window()
+        
+        return self.result
+    
+    def _create_widgets(self):
+        """Create dialog widgets"""
+        main_frame = ttk_bootstrap.Frame(self.dialog)
+        main_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Header
+        header_frame = ttk_bootstrap.Frame(main_frame)
+        header_frame.pack(fill=X, pady=(0, 20))
+        
+        # Warning icon and title
+        title_frame = ttk_bootstrap.Frame(header_frame)
+        title_frame.pack(fill=X)
+        
+        ttk_bootstrap.Label(
+            title_frame,
+            text="⚠️ Background Tasks Running",
+            font=("TkDefaultFont", 14, "bold")
+        ).pack(side=LEFT)
+        
+        # Description
+        desc_text = (
+            "The following background operations are currently running. "
+            "Closing the application now may interrupt these tasks and could "
+            "result in incomplete operations or data loss."
+        )
+        
+        desc_label = ttk_bootstrap.Label(
+            header_frame,
+            text=desc_text,
+            wraplength=550,
+            justify=LEFT
+        )
+        desc_label.pack(fill=X, pady=(10, 0))
+        
+        # Tasks list
+        self._create_tasks_list(main_frame)
+        
+        # Buttons
+        self._create_buttons(main_frame)
+    
+    def _create_tasks_list(self, parent):
+        """Create the tasks list display"""
+        tasks_frame = ttk_bootstrap.LabelFrame(parent, text="Running Tasks")
+        tasks_frame.pack(fill=BOTH, expand=True, pady=(0, 20))
+        
+        # Create scrollable frame
+        canvas = tk.Canvas(tasks_frame, height=150)
+        scrollbar = ttk_bootstrap.Scrollbar(tasks_frame, orient=VERTICAL, command=canvas.yview)
+        scrollable_frame = ttk_bootstrap.Frame(canvas)
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        canvas.pack(side=LEFT, fill=BOTH, expand=True, padx=10, pady=10)
+        scrollbar.pack(side=RIGHT, fill=Y, pady=10)
+        
+        # Add task items
+        for i, task in enumerate(self.running_tasks):
+            self._create_task_item(scrollable_frame, task, i)
+    
+    def _create_task_item(self, parent, task: BackgroundTask, index: int):
+        """Create a single task item"""
+        item_frame = ttk_bootstrap.Frame(parent)
+        item_frame.pack(fill=X, padx=5, pady=2)
+        
+        # Task info frame
+        info_frame = ttk_bootstrap.Frame(item_frame)
+        info_frame.pack(fill=X)
+        
+        # Task type icon
+        type_icons = {
+            "download": "⬇️",
+            "install": "📦",
+            "update_check": "🔍",
+            "deploy": "🚀",
+            "update_mod": "⬆️",
+            "api_validation": "🔑",
+            "rate_limit_check": "⏱️"
+        }
+        
+        icon = type_icons.get(task.task_type.value, "⚙️")
+        
+        ttk_bootstrap.Label(
+            info_frame,
+            text=f"{icon} {task.description}",
+            font=("TkDefaultFont", 10, "bold")
+        ).pack(side=LEFT)
+        
+        # Duration
+        duration_text = f"Running for {task.duration:.1f}s"
+        ttk_bootstrap.Label(
+            info_frame,
+            text=duration_text,
+            font=("TkDefaultFont", 9),
+            foreground="gray"
+        ).pack(side=RIGHT)
+        
+        # Progress bar (if progress is available)
+        if task.progress > 0:
+            progress_frame = ttk_bootstrap.Frame(item_frame)
+            progress_frame.pack(fill=X, pady=(2, 0))
+            
+            progress_bar = ttk_bootstrap.Progressbar(
+                progress_frame,
+                value=task.progress * 100,
+                length=400
+            )
+            progress_bar.pack(side=LEFT, fill=X, expand=True)
+            
+            ttk_bootstrap.Label(
+                progress_frame,
+                text=f"{task.progress * 100:.1f}%",
+                font=("TkDefaultFont", 8)
+            ).pack(side=RIGHT, padx=(5, 0))
+        
+        # Cancellable indicator
+        if task.can_cancel:
+            cancel_frame = ttk_bootstrap.Frame(item_frame)
+            cancel_frame.pack(fill=X, pady=(2, 0))
+            
+            var = tk.BooleanVar(value=True)  # Default to cancel
+            self.task_vars[task.task_id] = var
+            
+            ttk_bootstrap.Checkbutton(
+                cancel_frame,
+                text="Cancel this task when closing",
+                variable=var,
+                bootstyle=WARNING
+            ).pack(side=LEFT)
+        else:
+            # Non-cancellable task
+            ttk_bootstrap.Label(
+                item_frame,
+                text="⚠️ This task cannot be cancelled",
+                font=("TkDefaultFont", 8),
+                foreground="orange"
+            ).pack(anchor=W, pady=(2, 0))
+        
+        # Separator
+        if index < len(self.running_tasks) - 1:
+            ttk_bootstrap.Separator(item_frame, orient=HORIZONTAL).pack(fill=X, pady=5)
+    
+    def _create_buttons(self, parent):
+        """Create dialog buttons"""
+        button_frame = ttk_bootstrap.Frame(parent)
+        button_frame.pack(fill=X)
+        
+        # Cancel button (return to app)
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Cancel",
+            command=self._on_cancel,
+            bootstyle=SECONDARY,
+            width=15
+        ).pack(side=LEFT)
+        
+        # Wait button
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Wait for Tasks",
+            command=self._on_wait,
+            bootstyle=INFO,
+            width=15
+        ).pack(side=LEFT, padx=(10, 0))
+        
+        # Force close button
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Close Anyway",
+            command=self._on_force_close,
+            bootstyle=DANGER,
+            width=15
+        ).pack(side=RIGHT)
+    
+    def _on_cancel(self):
+        """User chose to cancel shutdown"""
+        self.result = "cancel"
+        self.dialog.destroy()
+    
+    def _on_wait(self):
+        """User chose to wait for tasks"""
+        self.result = "wait" 
+        self.dialog.destroy()
+    
+    def _on_force_close(self):
+        """User chose to force close"""
+        self.result = "shutdown"
+        
+        # Cancel selected tasks
+        thread_manager = get_thread_manager()
+        cancelled_count = 0
+        
+        for task_id, var in self.task_vars.items():
+            if var.get():  # User selected to cancel this task
+                if thread_manager.cancel_task(task_id):
+                    cancelled_count += 1
+        
+        if cancelled_count > 0:
+            print(f"User requested cancellation of {cancelled_count} tasks")
+        
+        self.dialog.destroy()
+    
+    def _on_close(self):
+        """Handle dialog close button"""
+        self.result = "cancel"
+        self.dialog.destroy()
+
+
+class TaskMonitorDialog:
+    """Dialog to monitor running tasks without shutdown context"""
+    
+    def __init__(self, parent):
+        self.parent = parent
+        self.dialog = None
+        self.refresh_after_id = None
+        
+    def show(self):
+        """Show the task monitor dialog"""
+        self.dialog = tk.Toplevel(self.parent)
+        self.dialog.title("Background Tasks")
+        self.dialog.transient(self.parent)
+        self.dialog.resizable(True, True)
+        
+        # Set dialog size
+        self.dialog.geometry("700x500")
+        
+        # Center dialog
+        self.dialog.update_idletasks()
+        x = (self.parent.winfo_rootx() + self.parent.winfo_width() // 2 - 
+             self.dialog.winfo_width() // 2)
+        y = (self.parent.winfo_rooty() + self.parent.winfo_height() // 2 - 
+             self.dialog.winfo_height() // 2)
+        self.dialog.geometry(f"+{x}+{y}")
+        
+        self._create_widgets()
+        self._start_refresh()
+        
+        # Handle dialog close
+        self.dialog.protocol("WM_DELETE_WINDOW", self._on_close)
+    
+    def _create_widgets(self):
+        """Create dialog widgets"""
+        main_frame = ttk_bootstrap.Frame(self.dialog)
+        main_frame.pack(fill=BOTH, expand=True, padx=20, pady=20)
+        
+        # Header
+        header_frame = ttk_bootstrap.Frame(main_frame)
+        header_frame.pack(fill=X, pady=(0, 20))
+        
+        ttk_bootstrap.Label(
+            header_frame,
+            text="⚙️ Background Task Monitor",
+            font=("TkDefaultFont", 14, "bold")
+        ).pack(side=LEFT)
+        
+        # Summary
+        self.summary_var = tk.StringVar()
+        ttk_bootstrap.Label(
+            header_frame,
+            textvariable=self.summary_var,
+            font=("TkDefaultFont", 10)
+        ).pack(side=RIGHT)
+        
+        # Tasks list with treeview
+        list_frame = ttk_bootstrap.Frame(main_frame)
+        list_frame.pack(fill=BOTH, expand=True, pady=(0, 20))
+        
+        self.tree = ttk_bootstrap.Treeview(
+            list_frame,
+            columns=("type", "status", "progress", "duration"),
+            show="tree headings",
+            height=15
+        )
+        
+        # Configure columns
+        self.tree.heading("#0", text="Task Description")
+        self.tree.heading("type", text="Type") 
+        self.tree.heading("status", text="Status")
+        self.tree.heading("progress", text="Progress")
+        self.tree.heading("duration", text="Duration")
+        
+        self.tree.column("#0", width=300, minwidth=200)
+        self.tree.column("type", width=100, minwidth=80)
+        self.tree.column("status", width=100, minwidth=80)
+        self.tree.column("progress", width=100, minwidth=80)
+        self.tree.column("duration", width=100, minwidth=80)
+        
+        # Scrollbars
+        tree_scroll_y = ttk_bootstrap.Scrollbar(list_frame, orient=VERTICAL, command=self.tree.yview)
+        tree_scroll_x = ttk_bootstrap.Scrollbar(list_frame, orient=HORIZONTAL, command=self.tree.xview)
+        self.tree.configure(yscrollcommand=tree_scroll_y.set, xscrollcommand=tree_scroll_x.set)
+        
+        self.tree.pack(side=LEFT, fill=BOTH, expand=True)
+        tree_scroll_y.pack(side=RIGHT, fill=Y)
+        tree_scroll_x.pack(side=BOTTOM, fill=X)
+        
+        # Buttons
+        button_frame = ttk_bootstrap.Frame(main_frame)
+        button_frame.pack(fill=X)
+        
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Refresh",
+            command=self._refresh_tasks,
+            bootstyle=INFO
+        ).pack(side=LEFT)
+        
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Cancel Selected",
+            command=self._cancel_selected,
+            bootstyle=WARNING
+        ).pack(side=LEFT, padx=(10, 0))
+        
+        ttk_bootstrap.Button(
+            button_frame,
+            text="Close",
+            command=self._on_close,
+            bootstyle=SECONDARY
+        ).pack(side=RIGHT)
+    
+    def _start_refresh(self):
+        """Start auto-refresh of task list"""
+        self._refresh_tasks()
+        self.refresh_after_id = self.dialog.after(1000, self._start_refresh)
+    
+    def _refresh_tasks(self):
+        """Refresh the task list"""
+        thread_manager = get_thread_manager()
+        
+        # Clear existing items
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+        
+        # Get all tasks
+        all_tasks = thread_manager.get_all_tasks()
+        summary = thread_manager.get_task_summary()
+        
+        # Update summary
+        summary_text = f"Running: {summary['running']}, Completed: {summary['completed']}, Failed: {summary['failed']}"
+        self.summary_var.set(summary_text)
+        
+        # Add tasks to tree
+        for task in sorted(all_tasks, key=lambda t: t.start_time, reverse=True):
+            status_text = "Running" if task.is_running else task.status.value.title()
+            progress_text = f"{task.progress * 100:.1f}%" if task.progress > 0 else "-"
+            duration_text = f"{task.duration:.1f}s"
+            
+            # Status colors
+            tags = []
+            if task.is_running:
+                tags.append("running")
+            elif task.status.value == "completed":
+                tags.append("completed")
+            elif task.status.value == "failed":
+                tags.append("failed")
+            elif task.status.value == "cancelled":
+                tags.append("cancelled")
+            
+            self.tree.insert(
+                "",
+                "end",
+                text=task.description,
+                values=(task.task_type.value, status_text, progress_text, duration_text),
+                tags=tags
+            )
+        
+        # Configure tag colors
+        self.tree.tag_configure("running", foreground="blue")
+        self.tree.tag_configure("completed", foreground="green")
+        self.tree.tag_configure("failed", foreground="red")
+        self.tree.tag_configure("cancelled", foreground="orange")
+    
+    def _cancel_selected(self):
+        """Cancel selected tasks"""
+        selection = self.tree.selection()
+        if not selection:
+            return
+        
+        thread_manager = get_thread_manager()
+        all_tasks = thread_manager.get_all_tasks()
+        
+        cancelled_count = 0
+        for item_id in selection:
+            item_index = self.tree.index(item_id)
+            if item_index < len(all_tasks):
+                task = all_tasks[item_index]
+                if task.is_running and thread_manager.cancel_task(task.task_id):
+                    cancelled_count += 1
+        
+        if cancelled_count > 0:
+            print(f"Cancelled {cancelled_count} tasks")
+    
+    def _on_close(self):
+        """Handle dialog close"""
+        if self.refresh_after_id:
+            self.dialog.after_cancel(self.refresh_after_id)
+        self.dialog.destroy()
