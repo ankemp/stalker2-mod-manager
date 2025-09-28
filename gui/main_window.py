@@ -67,9 +67,9 @@ class MainWindow:
                 self.nexus_client = NexusModsClient(api_key)
                 
                 # Check if we have stored user info from previous validation
-                api_user = self.config_manager.get_setting('api_user_name')
+                api_user = self.config_manager.get_config('api_user_name')
                 if api_user:
-                    is_premium = self.config_manager.get_setting('api_is_premium', False)
+                    is_premium = self.config_manager.get_config('api_is_premium', 'False')
                     premium_text = " (Premium)" if is_premium else " (Free)"
                     self.status_bar.set_connection_status(f"API: {api_user}{premium_text}")
                 else:
@@ -377,8 +377,11 @@ class MainWindow:
                         ))
                         return
                     
+                    # Initialize file_id variable
+                    current_file_id = file_id
+                    
                     # Get latest file if no specific file was requested
-                    if not file_id:
+                    if not current_file_id:
                         self.root.after(0, lambda: self.status_bar.set_status("Finding latest mod file..."))
                         files = self.nexus_client.get_mod_files(mod_id)
                         main_files = [f for f in files if f.get('category_name') == 'MAIN']
@@ -394,7 +397,7 @@ class MainWindow:
                         
                         # Get the most recent file
                         latest_file = max(main_files, key=lambda f: f.get('uploaded_timestamp', 0))
-                        file_id = latest_file['file_id']
+                        current_file_id = latest_file['file_id']
                     
                     # Create progress callback
                     def progress_callback(downloaded, total):
@@ -408,7 +411,7 @@ class MainWindow:
                     # Download the mod
                     self.root.after(0, lambda: self.status_bar.set_status(f"Downloading {mod_info['name']}..."))
                     downloader = ModDownloader(self.nexus_client, app_config.DEFAULT_MODS_DIR)
-                    archive_path = downloader.download_mod(mod_id, file_id, progress_callback)
+                    archive_path = downloader.download_mod(mod_id, current_file_id, progress_callback)
                     
                     # Add mod to database
                     self.root.after(0, lambda: self.status_bar.set_status("Adding mod to database..."))
@@ -424,7 +427,7 @@ class MainWindow:
                     new_mod_id = self.mod_manager.add_mod(mod_data)
                     
                     # Add archive record
-                    file_info = self.nexus_client.get_file_info(mod_id, file_id)
+                    file_info = self.nexus_client.get_file_info(mod_id, current_file_id)
                     self.archive_manager.add_archive(
                         mod_id=new_mod_id,
                         version=mod_info.get('version', '1.0.0'),
@@ -1238,7 +1241,7 @@ class MainWindow:
                 
                 # Get the most recent file
                 latest_file = max(main_files, key=lambda f: f.get('uploaded_timestamp', 0))
-                file_id = latest_file['file_id']
+                current_file_id = latest_file['file_id']
                 
                 # Create progress callback
                 def progress_callback(downloaded, total):
@@ -1252,7 +1255,7 @@ class MainWindow:
                 # Download the updated mod
                 self.root.after(0, lambda: self.status_bar.set_status(f"Downloading updated {mod_info['name']}..."))
                 downloader = ModDownloader(self.nexus_client, app_config.DEFAULT_MODS_DIR)
-                new_archive_path = downloader.download_mod(nexus_mod_id, file_id, progress_callback)
+                new_archive_path = downloader.download_mod(nexus_mod_id, current_file_id, progress_callback)
                 
                 # Get current archive info to remove old file
                 archives = self.archive_manager.get_mod_archives(mod_data['id'])
@@ -1268,7 +1271,7 @@ class MainWindow:
                             print(f"Warning: Could not remove old archive: {e}")
                     
                     # Update archive record
-                    file_info = self.nexus_client.get_file_info(nexus_mod_id, file_id)
+                    file_info = self.nexus_client.get_file_info(nexus_mod_id, current_file_id)
                     self.archive_manager.update_archive(old_archive['id'], {
                         'file_name': file_info['file_name'],
                         'version': mod_info.get('version', '1.0.0'),
@@ -1277,7 +1280,7 @@ class MainWindow:
                     })
                 else:
                     # Add new archive record if none exists
-                    file_info = self.nexus_client.get_file_info(nexus_mod_id, file_id)
+                    file_info = self.nexus_client.get_file_info(nexus_mod_id, current_file_id)
                     self.archive_manager.add_archive(
                         mod_id=mod_data['id'],
                         version=mod_info.get('version', '1.0.0'),
@@ -1396,4 +1399,3 @@ class MainWindow:
             self.root.quit()
             self.root.destroy()
         # TODO: Stop background threads
-        self.root.destroy()
