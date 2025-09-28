@@ -1,5 +1,5 @@
 """
-Reset the database and reload sample data
+Reset the database to a clean state
 """
 
 import sys
@@ -27,7 +27,7 @@ def main():
         print("📄 No existing database found")
     
     print("🔄 Database will be recreated on next application run")
-    print("💡 Run 'python main.py' to create fresh database with sample data")
+    print("💡 Run 'python main.py' to start with a fresh database")
     print("💡 Run 'python show_db_info.py' to view database information")
 
 if __name__ == "__main__":

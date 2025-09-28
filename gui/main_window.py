@@ -35,9 +35,6 @@ class MainWindow:
         self.nexus_client = None
         self.file_manager = None
         
-        # Load some sample data if database is empty
-        self.load_initial_data()
-        
         self.setup_menu()
         self.setup_main_ui()
         self.setup_bindings()
@@ -47,6 +44,9 @@ class MainWindow:
         
         # Initialize API components after UI is ready
         self.init_api_components()
+        
+        # Initialize basic configuration if needed (no sample data)
+        self.init_basic_config_if_needed()
     
     def init_api_components(self):
         """Initialize API client and file manager based on current settings"""
@@ -81,99 +81,25 @@ class MainWindow:
             print(f"Error initializing API components: {e}")
             self.status_bar.set_status(f"Error initializing API components: {e}")
     
-    def load_initial_data(self):
-        """Load initial sample data if database is empty"""
+    def init_basic_config_if_needed(self):
+        """Initialize basic configuration only (no sample data)"""
         try:
-            # Check if we already have mods
-            existing_mods = self.mod_manager.get_all_mods()
-            if len(existing_mods) > 0:
-                return  # Already have data
+            # Check if basic configuration exists
+            existing_config = self.config_manager.get_all_config()
+            if len(existing_config) > 0:
+                print("Configuration already exists")
+                return  # Configuration exists
             
-            # Add some sample mods for demonstration
-            sample_mods = [
-                {
-                    "nexus_mod_id": 123,
-                    "mod_name": "Enhanced Graphics Pack",
-                    "author": "GraphicsGuru",
-                    "summary": "Improves textures and lighting effects throughout the game",
-                    "latest_version": "2.1.0",
-                    "enabled": True
-                },
-                {
-                    "nexus_mod_id": 456,
-                    "mod_name": "Weapon Rebalance Mod",
-                    "author": "BalanceMaster",
-                    "summary": "Rebalances weapon damage and accuracy for better gameplay",
-                    "latest_version": "1.5.2",
-                    "enabled": True
-                },
-                {
-                    "nexus_mod_id": 789,
-                    "mod_name": "UI Overhaul",
-                    "author": "UIDesigner",
-                    "summary": "Complete user interface redesign with modern elements",
-                    "latest_version": "3.0.1",
-                    "enabled": False
-                },
-                {
-                    "nexus_mod_id": 101,
-                    "mod_name": "Sound Enhancement Pack",
-                    "author": "AudioEngineer",
-                    "summary": "Enhanced audio effects and ambient sounds for immersion",
-                    "latest_version": "1.3.0",  # This will be newer than archive version
-                    "enabled": True
-                },
-                {
-                    "mod_name": "Local Custom Mod",
-                    "author": "Unknown",
-                    "summary": "Custom mod installed from local file",
-                    "latest_version": "1.0.0",
-                    "enabled": True
-                }
-            ]
+            print("Initializing basic configuration for first run...")
             
-            for mod_data in sample_mods:
-                mod_id = self.mod_manager.add_mod(mod_data)
-                
-                # Add sample archive for each mod
-                archive_version = mod_data.get("latest_version", "1.0.0")
-                
-                # For the Sound Enhancement Pack, add an older version to show update available
-                if mod_data.get("nexus_mod_id") == 101:
-                    archive_version = "1.2.0"  # Older than latest_version
-                
-                self.archive_manager.add_archive(
-                    mod_id=mod_id,
-                    version=archive_version,
-                    file_name=f"{mod_data['mod_name'].lower().replace(' ', '_')}_v{archive_version}.zip",
-                    file_size=1024000 + (mod_id * 100000)
-                )
-                
-                # Add sample deployment selections for enabled mods
-                if mod_data.get("enabled"):
-                    sample_files = [
-                        "Data/Scripts/mod_script.lua",
-                        "Data/Textures/texture1.dds",
-                        "Data/Config/settings.cfg"
-                    ]
-                    self.deployment_manager.save_deployment_selections(mod_id, sample_files)
-                    
-                    # Add deployed files records
-                    for file_path in sample_files:
-                        deployed_path = f"C:/Game/{file_path}"
-                        backup_path = f"C:/Backup/{file_path}.bak" if file_path.endswith('.cfg') else None
-                        self.deployment_manager.add_deployed_file(mod_id, deployed_path, backup_path)
-            
-            # Set some basic configuration
-            self.config_manager.set_game_path(app_config.DEFAULT_GAME_PATH)
-            self.config_manager.set_mods_directory(app_config.DEFAULT_MODS_DIR)
+            # Set only essential configuration
             self.config_manager.set_auto_check_updates(True)
-            self.config_manager.set_update_interval(app_config.DEFAULT_UPDATE_INTERVAL_HOURS)
+            self.config_manager.set_update_interval(config.DEFAULT_UPDATE_INTERVAL_HOURS)
             
-            print("Loaded sample data into database")
+            print("Basic configuration initialized successfully")
             
         except Exception as e:
-            print(f"Error loading initial data: {e}")
+            print(f"Error initializing basic configuration: {e}")
             import traceback
             traceback.print_exc()
     
@@ -282,7 +208,7 @@ class MainWindow:
         self.mod_list_frame = ModListFrame(left_frame, self.on_mod_selected, self.mod_manager)
         
         # Create mod details frame
-        self.mod_details_frame = ModDetailsFrame(right_frame, self.on_mod_action)
+        self.mod_details_frame = ModDetailsFrame(right_frame, self.on_mod_action, self.deployment_manager)
         
         # Create status bar
         self.status_bar = StatusBar(self.root)
@@ -370,7 +296,7 @@ class MainWindow:
         self.root.bind('<Delete>', lambda e: self.remove_selected_mod())
         
         # Window close event
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.root.protocol("WM_DELETE_WINDOW", self.close_application)
     
     def on_mod_selected(self, mod_data):
         """Handle mod selection from the list"""
@@ -799,9 +725,23 @@ class MainWindow:
         dialog = DeploymentSelectionDialog(self.root, mod_data)
         result = dialog.show()
         if result:
-            # TODO: Save deployment selections to database
-            # TODO: Update mod status
-            self.status_bar.set_status(f"Updated deployment configuration for: {mod_data.get('name', 'Unknown')}")
+            # Save deployment selections to database
+            try:
+                mod_id = result.get("mod_id")
+                selected_files = result.get("selected_files", [])
+                
+                if mod_id and selected_files:
+                    self.deployment_manager.save_deployment_selections(mod_id, selected_files)
+                    self.status_bar.set_status(f"Updated deployment configuration for: {mod_data.get('name', 'Unknown')}")
+                    print(f"Saved {len(selected_files)} deployment selections for mod {mod_id}")
+                else:
+                    self.status_bar.set_status("No files selected for deployment")
+                    
+            except Exception as e:
+                print(f"Error saving deployment selections: {e}")
+                self.status_bar.set_status(f"Error saving deployment configuration: {e}")
+        else:
+            self.status_bar.set_status("Deployment configuration cancelled")
     
     def remove_selected_mod(self):
         """Remove the currently selected mod"""
@@ -817,11 +757,52 @@ class MainWindow:
             "This will delete the mod archive and remove all deployed files."
         )
         if result:
-            # TODO: Remove deployed files from game directory
-            # TODO: Delete mod archive
-            # TODO: Remove from database
-            # TODO: Refresh mod list
-            self.status_bar.set_status(f"Removed mod: {mod_data.get('name', 'Unknown')}")
+            try:
+                mod_id = mod_data.get("id")
+                mod_name = mod_data.get("name", "Unknown")
+                
+                # Remove deployed files from game directory if file manager is available
+                if self.file_manager and mod_id:
+                    try:
+                        deployed_files = self.deployment_manager.get_deployed_file_paths(mod_id)
+                        if deployed_files:
+                            self.file_manager.remove_deployed_files(deployed_files)
+                            print(f"Removed {len(deployed_files)} deployed files")
+                    except Exception as e:
+                        print(f"Error removing deployed files: {e}")
+                
+                # Remove mod archive file if it exists
+                if mod_id:
+                    try:
+                        active_archive = self.archive_manager.get_active_archive(mod_id)
+                        if active_archive:
+                            archive_filename = active_archive.get("file_name")
+                            if archive_filename:
+                                # Remove the physical archive file
+                                import config as app_config
+                                import os
+                                archive_path = os.path.join(app_config.DEFAULT_MODS_DIR, archive_filename)
+                                if os.path.exists(archive_path):
+                                    os.remove(archive_path)
+                                    print(f"Removed archive file: {archive_filename}")
+                    except Exception as e:
+                        print(f"Error removing archive file: {e}")
+                
+                # Remove from database (cascading delete will handle related records)
+                if mod_id and self.mod_list_frame:
+                    success = self.mod_list_frame.remove_mod(mod_id)
+                    if success:
+                        self.status_bar.set_status(f"Successfully removed mod: {mod_name}")
+                        # Refresh the mod list display
+                        self.refresh_mod_list()
+                    else:
+                        self.status_bar.set_status(f"Error removing mod from database: {mod_name}")
+                else:
+                    self.status_bar.set_status("Error: Could not identify mod to remove")
+                    
+            except Exception as e:
+                print(f"Error during mod removal: {e}")
+                self.status_bar.set_status(f"Error removing mod: {e}")
     
     def check_for_updates(self):
         """Check for updates for all mods"""
@@ -1388,9 +1369,31 @@ class MainWindow:
             "• Enable/disable mods easily"
         )
     
-    def on_closing(self):
-        """Handle application closing"""
-        # TODO: Save any pending changes
-        # TODO: Close database connections
+    def close_application(self):
+        """Properly close the application with cleanup"""
+        try:
+            # Close database connections
+            if hasattr(self, 'db_manager') and self.db_manager:
+                # The database connection is handled via context managers
+                # No explicit cleanup needed, but we can log it
+                print("Database connections will be closed automatically")
+            
+            # Close Nexus API client session
+            if hasattr(self, 'nexus_client') and self.nexus_client:
+                try:
+                    self.nexus_client.close()
+                    print("Nexus API client session closed")
+                except Exception as e:
+                    print(f"Error closing Nexus API client: {e}")
+            
+            # Any other cleanup operations can go here
+            print("Application cleanup completed")
+            
+        except Exception as e:
+            print(f"Error during application cleanup: {e}")
+        finally:
+            # Close the main window
+            self.root.quit()
+            self.root.destroy()
         # TODO: Stop background threads
         self.root.destroy()

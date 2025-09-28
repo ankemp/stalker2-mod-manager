@@ -20,7 +20,7 @@ class ModListFrame:
         self.load_mod_data()
     
     def load_mod_data(self):
-        """Load mod data from database or use sample data"""
+        """Load mod data from database"""
         if self.mod_manager:
             try:
                 # Load real data from database
@@ -43,9 +43,10 @@ class ModListFrame:
                 
             except Exception as e:
                 print(f"Error loading mods from database: {e}")
-                self.load_sample_data()  # Fallback to sample data
+                self.mod_data = {}  # Initialize with empty state
         else:
-            self.load_sample_data()  # Use sample data if no mod_manager
+            print("No mod manager available - starting with empty mod list")
+            self.mod_data = {}  # Start with empty state
         
         self.refresh_list()
     
@@ -131,70 +132,48 @@ class ModListFrame:
         self.tree.tag_configure("disabled", foreground="gray")
         self.tree.tag_configure("outdated", foreground="orange")
         self.tree.tag_configure("error", foreground="red")
+        self.tree.tag_configure("empty", foreground="gray", font=("TkDefaultFont", 9, "italic"))
     
-    def load_sample_data(self):
-        """Load sample mod data (TODO: Replace with actual database loading)"""
-        sample_mods = [
-            {
-                "id": 1,
-                "name": "Enhanced Graphics Pack",
-                "version": "2.1.0",
-                "status": "enabled",
-                "last_updated": "2024-09-20",
-                "enabled": True,
-                "nexus_id": 123,
-                "author": "GraphicsGuru",
-                "summary": "Improves textures and lighting effects"
-            },
-            {
-                "id": 2,
-                "name": "Weapon Rebalance Mod",
-                "version": "1.5.2",
-                "status": "enabled",
-                "last_updated": "2024-09-18",
-                "enabled": True,
-                "nexus_id": 456,
-                "author": "BalanceMaster",
-                "summary": "Rebalances weapon damage and accuracy"
-            },
-            {
-                "id": 3,
-                "name": "UI Overhaul",
-                "version": "3.0.1",
-                "status": "disabled",
-                "last_updated": "2024-09-15",
-                "enabled": False,
-                "nexus_id": 789,
-                "author": "UIDesigner",
-                "summary": "Complete user interface redesign"
-            },
-            {
-                "id": 4,
-                "name": "Sound Enhancement Pack",
-                "version": "1.2.0",
-                "status": "outdated",
-                "last_updated": "2024-08-30",
-                "enabled": True,
-                "nexus_id": 101,
-                "author": "AudioEngineer",
-                "summary": "Enhanced audio effects and ambient sounds",
-                "latest_version": "1.3.0"
-            },
-            {
-                "id": 5,
-                "name": "Local Custom Mod",
-                "version": "1.0.0",
-                "status": "enabled",
-                "last_updated": "2024-09-10",
-                "enabled": True,
-                "nexus_id": None,
-                "author": "Unknown",
-                "summary": "Custom mod installed from local file"
-            }
-        ]
-        
-        self.mod_data = {mod["id"]: mod for mod in sample_mods}
-        self.refresh_list()
+    
+    def toggle_mod_enabled(self, mod_id, enabled):
+        """Toggle mod enabled/disabled status with database persistence"""
+        if self.mod_manager:
+            try:
+                self.mod_manager.set_mod_enabled(mod_id, enabled)
+                # Reload data to reflect changes
+                self.load_mod_data()
+                print(f"Mod {mod_id} {'enabled' if enabled else 'disabled'}")
+                return True
+            except Exception as e:
+                print(f"Error toggling mod {mod_id}: {e}")
+                return False
+        else:
+            print("No mod manager available - cannot toggle mod status")
+            return False
+    
+    def get_selected_mod(self):
+        """Get the currently selected mod data"""
+        selection = self.tree.selection()
+        if selection:
+            item = selection[0]
+            mod_id = int(item)  # TreeView item ID corresponds to mod ID
+            return self.mod_data.get(mod_id)
+        return None
+    
+    def remove_mod(self, mod_id):
+        """Remove a mod from the database"""
+        if self.mod_manager:
+            try:
+                self.mod_manager.remove_mod(mod_id)
+                self.load_mod_data()  # Refresh the list
+                print(f"Mod {mod_id} removed from database")
+                return True
+            except Exception as e:
+                print(f"Error removing mod {mod_id}: {e}")
+                return False
+        else:
+            print("No mod manager available - cannot remove mod")
+            return False
     
     def refresh_list(self):
         """Refresh the mod list display"""
@@ -202,8 +181,19 @@ class ModListFrame:
         for item in self.tree.get_children():
             self.tree.delete(item)
         
+        # Check if we have any mods
+        if not self.mod_data:
+            # Show empty state message
+            self.show_empty_state()
+            return
+        
         # Filter and sort mods
         filtered_mods = self.get_filtered_mods()
+        
+        if not filtered_mods:
+            # Show no results message
+            self.show_no_results_state()
+            return
         
         # Insert mods into tree
         for mod in filtered_mods:
@@ -234,6 +224,51 @@ class ModListFrame:
             
             # Store mod data for easy retrieval
             self.tree.item(item_id, tags=tags + [f"mod_id_{mod['id']}"])
+    
+    def show_empty_state(self):
+        """Show empty state when no mods are installed"""
+        self.tree.insert(
+            "",
+            "end",
+            text="No mods installed",
+            values=("", "", ""),
+            tags=("empty",)
+        )
+        
+        # Add helpful message
+        self.tree.insert(
+            "",
+            "end", 
+            text="• Add mods using 'Add from URL' or 'Add from File'",
+            values=("", "", ""),
+            tags=("empty",)
+        )
+        
+        self.tree.insert(
+            "",
+            "end",
+            text="• Use Ctrl+O for URL or Ctrl+Shift+O for file",
+            values=("", "", ""),
+            tags=("empty",)
+        )
+    
+    def show_no_results_state(self):
+        """Show message when filters result in no matches"""
+        self.tree.insert(
+            "",
+            "end",
+            text="No mods match current filters",
+            values=("", "", ""),
+            tags=("empty",)
+        )
+        
+        self.tree.insert(
+            "",
+            "end",
+            text="• Try changing the filter or search terms",
+            values=("", "", ""),
+            tags=("empty",)
+        )
     
     def get_filtered_mods(self):
         """Get filtered list of mods based on search and filter criteria"""
@@ -322,9 +357,10 @@ class ModListFrame:
 class ModDetailsFrame:
     """Frame showing details of the selected mod"""
     
-    def __init__(self, parent, action_callback):
+    def __init__(self, parent, action_callback, deployment_manager=None):
         self.parent = parent
         self.action_callback = action_callback
+        self.deployment_manager = deployment_manager
         self.current_mod = None
         
         self.setup_ui()
@@ -563,55 +599,69 @@ class ModDetailsFrame:
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
         
-        # TODO: Load actual deployed files from database
-        # Sample deployed files data
-        sample_files = [
-            ("Data/Scripts/enhanced_graphics.lua", "deployed"),
-            ("Data/Textures/weapon_01.dds", "deployed"),
-            ("Data/Textures/ui_background.dds", "deployed"),
-            ("Data/Config/graphics_settings.cfg", "deployed")
-        ]
-        
-        if mod_data.get("enabled"):
-            for file_path, status in sample_files:
-                self.files_tree.insert(
-                    "",
-                    "end",
-                    text=file_path,
-                    values=(status.title(),),
-                    tags=(status,)
-                )
+        if self.deployment_manager and mod_data.get("id"):
+            try:
+                deployed_files = self.deployment_manager.get_deployed_files(mod_data["id"])
+                if deployed_files:
+                    for deployed_file in deployed_files:
+                        deployed_path = deployed_file.get("deployed_path", "")
+                        backup_path = deployed_file.get("original_backup_path")
+                        
+                        # Determine status
+                        if backup_path:
+                            status = "deployed (backed up)"
+                            status_color = "blue"
+                        else:
+                            status = "deployed"
+                            status_color = "green"
+                        
+                        item = self.files_tree.insert("", "end", values=(deployed_path, status))
+                        self.files_tree.set(item, "file", os.path.basename(deployed_path))
+                        self.files_tree.set(item, "status", status)
+                else:
+                    # Show message if no files are deployed
+                    self.show_no_deployed_files()
+                    
+            except Exception as e:
+                print(f"Error loading deployed files: {e}")
+                self.show_deployed_files_error()
         else:
-            # Show message when mod is disabled
-            self.files_tree.insert(
-                "",
-                "end",
-                text="No files deployed (mod is disabled)",
-                values=("",),
-                tags=()
-            )
+            # No deployment manager or mod ID available
+            self.show_no_deployed_files()
+    
+    def show_no_deployed_files(self):
+        """Show message when no files are deployed"""
+        item = self.files_tree.insert("", "end", text="No files currently deployed", values=("info",))
+        item = self.files_tree.insert("", "end", text="• Use 'Configure Files' to select files to deploy", values=("info",))
+    
+    def show_deployed_files_error(self):
+        """Show error message when deployed files can't be loaded"""
+        item = self.files_tree.insert("", "end", text="Error loading deployed files", values=("error",))
     
     def show_placeholder(self):
         """Show placeholder content when no mod is selected"""
         self.name_var.set("No mod selected")
         self.author_var.set("")
         self.version_var.set("")
-        self.status_var.set("")
-        self.update_var.set("")
-        
         self.description_text.config(state=tk.NORMAL)
-        self.description_text.delete(1.0, tk.END)
-        self.description_text.insert(1.0, "Select a mod from the list to view its details and manage its settings.")
+        self.description_text.delete("1.0", tk.END)
+        self.description_text.insert("1.0", "Select a mod from the list to view its details")
         self.description_text.config(state=tk.DISABLED)
         
+        self.nexus_link_var.set("")
         self.nexus_frame.pack_forget()
-        self.toggle_button.config(text="Enable Mod", state=DISABLED)
-        self.update_button.config(state=DISABLED)
-        self.configure_files_button.config(state=DISABLED)
-        self.remove_mod_button.config(state=DISABLED)
-        # Clear files list
+        
+        # Clear deployed files
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
+        
+            # Show helpful message
+            item = self.files_tree.insert("", "end", text="Select a mod to view deployed files", values=("info",))
+            self.nexus_frame.pack_forget()
+            self.toggle_button.config(text="Enable Mod", state=DISABLED)
+            self.update_button.config(state=DISABLED)
+            self.configure_files_button.config(state=DISABLED)
+            self.remove_mod_button.config(state=DISABLED)
     
     def clear_display(self):
         """Clear the mod details display"""

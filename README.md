@@ -359,12 +359,14 @@ python scripts/validate_api_compliance.py
 - ✅ UI connected to database for real mod management
 - ✅ Enable/disable mods with database persistence
 - ✅ Settings loading and saving
-- ✅ Sample data loading for demonstration
+- ✅ **Pure database integration with proper null states**
 - ✅ **Nexus API integration with UI (complete download functionality)**
 - ✅ **File manager integration with UI (deployment system)**
 - ✅ **Update checking and notifications in UI**
 - ✅ **Error handling and user feedback integration through threading**
 - ✅ **Game path auto-detection system with multiple platform support**
+- ✅ **Mod removal with cascade delete and file cleanup**
+- ✅ **Deployment selection persistence in database**
 
 **Development Tools:**
 - ✅ Comprehensive test suites for all components
@@ -377,12 +379,9 @@ python scripts/validate_api_compliance.py
 ### 🚧 **In Progress / Remaining Features**
 
 **Core Functionality Integration:**
-- Replace sample data loading with actual database integration in mod list
 - Implement actual archive content reading for file deployment dialog
 - Connect mod enable/disable toggle functionality to file manager
-- Implement save deployment selections to database
 - Update mod status tracking after deployment operations
-- Add mod removal functionality (files, archive, database cleanup)
 
 **Settings & Configuration:**
 - Save and load all user preferences and configuration settings
@@ -397,7 +396,7 @@ python scripts/validate_api_compliance.py
 **Application Lifecycle:**
 - Implement proper application shutdown procedures
 - Save pending changes on exit
-- Close database connections cleanly
+- ✅ **Database connections cleanup on exit**
 - Stop background threads safely
 - Add crash recovery and error reporting
 

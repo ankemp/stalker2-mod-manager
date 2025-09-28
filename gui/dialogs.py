@@ -1021,7 +1021,7 @@ class DeploymentSelectionDialog(BaseDialog):
         tree_scroll_y.pack(side=RIGHT, fill=Y)
         tree_scroll_x.pack(side=BOTTOM, fill=X)
         
-        # Populate tree with sample data (TODO: replace with actual archive contents)
+        # Populate tree with actual archive contents or show empty state
         self.populate_file_tree()
         
         # Selection buttons
@@ -1080,61 +1080,21 @@ class DeploymentSelectionDialog(BaseDialog):
     def populate_file_tree(self):
         """Populate the file tree with mod archive contents"""
         # TODO: Replace with actual archive reading logic
-        # Sample data structure
-        sample_files = [
-            ("Data/", "folder", ""),
-            ("Data/Scripts/", "folder", ""),
-            ("Data/Scripts/mod_script.lua", "file", "2.5 KB"),
-            ("Data/Textures/", "folder", ""),
-            ("Data/Textures/weapon_texture.dds", "file", "1.2 MB"),
-            ("Data/Textures/ui_texture.dds", "file", "512 KB"),
-            ("README.txt", "file", "1.5 KB"),
-            ("changelog.txt", "file", "856 B")
-        ]
+        # For now, show message that archive reading needs to be implemented
+        root_item = self.tree.insert("", "end", text="Archive Reading Not Implemented", 
+                                    values=("", ""), tags=("info",))
         
-        # Track items for checkbox functionality
+        help_item = self.tree.insert("", "end", text="• Archive content reading will be implemented", 
+                                    values=("", ""), tags=("info",))
+        
+        help_item2 = self.tree.insert("", "end", text="• For now, all files will be selected by default", 
+                                     values=("", ""), tags=("info",))
+        
+        # Configure tag for info messages
+        self.tree.tag_configure("info", foreground="gray", font=("TkDefaultFont", 9, "italic"))
+        
+        # Initialize empty tree items
         self.tree_items = {}
-        
-        # Insert root items
-        folders = {}
-        for path, file_type, size in sample_files:
-            parts = path.split('/')
-            current_path = ""
-            
-            for i, part in enumerate(parts):
-                if not part:  # Skip empty parts
-                    continue
-                    
-                parent_path = current_path
-                current_path = current_path + "/" + part if current_path else part
-                
-                if current_path not in self.tree_items:
-                    parent_id = folders.get(parent_path, "")
-                    
-                    # Determine if this is a file or folder
-                    is_folder = (i < len(parts) - 1) or file_type == "folder"
-                    display_size = "" if is_folder else size
-                    
-                    item_id = self.tree.insert(
-                        parent_id, 
-                        "end", 
-                        text=f"☐ {part}", 
-                        values=(display_size,),
-                        tags=("unchecked",)
-                    )
-                    
-                    self.tree_items[current_path] = {
-                        "id": item_id,
-                        "checked": False,
-                        "path": current_path
-                    }
-                    
-                    if is_folder:
-                        folders[current_path] = item_id
-        
-        # Configure tags for styling
-        self.tree.tag_configure("checked", foreground="green")
-        self.tree.tag_configure("unchecked", foreground="black")
     
     def on_tree_click(self, event):
         """Handle tree item clicks for checkbox functionality, but ignore expand/collapse arrow clicks."""
@@ -1147,37 +1107,9 @@ class DeploymentSelectionDialog(BaseDialog):
             self.toggle_item(item)
     
     def toggle_item(self, item_id, recursive=True):
-        """Toggle the checked state of a tree item. If directory, toggle all children recursively."""
-        # Find the item data
-        item_data = None
-        for data in self.tree_items.values():
-            if data["id"] == item_id:
-                item_data = data
-                break
-        if not item_data:
-            return
-        # Toggle state
-        item_data["checked"] = not item_data["checked"]
-        # Update display
-        current_text = self.tree.item(item_id, "text")
-        if item_data["checked"]:
-            new_text = current_text.replace("☐", "☑")
-            self.tree.item(item_id, text=new_text, tags=("checked",))
-        else:
-            new_text = current_text.replace("☑", "☐")
-            self.tree.item(item_id, text=new_text, tags=("unchecked",))
-        # If this is a folder, recursively toggle all children to match
-        if recursive:
-            children = self.tree.get_children(item_id)
-            for child_id in children:
-                # Only update if child state doesn't match parent
-                child_data = None
-                for d in self.tree_items.values():
-                    if d["id"] == child_id:
-                        child_data = d
-                        break
-                if child_data and child_data["checked"] != item_data["checked"]:
-                    self.toggle_item(child_id, recursive=True)
+        """Toggle the checked state of a tree item (not implemented for null state)"""
+        # Since we're in a null state with no actual files, do nothing
+        pass
     
     def select_all(self):
         """Select all items in the tree"""
