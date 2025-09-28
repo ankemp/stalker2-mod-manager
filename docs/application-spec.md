@@ -1,9 +1,5 @@
 # **Application Design Document: Stalker 2 Mod Manager**
 
-Author: \[Your Name\]  
-Date: September 24, 2025  
-Version: 1.8
-
 ## **1\. Overview & Purpose**
 
 ### **1.1. Executive Summary**
@@ -87,12 +83,23 @@ The application is for players of Stalker 2 on PC who use mods from Nexus Mods a
 * **Choice:** **PyInstaller**  
 * **Rationale:** A reliable tool for creating Windows executables.
 
-### **3.6. Data Persistence**
+### **3.6. Logging & Diagnostics**
+
+* **Choice:** **Python logging module with centralized configuration**
+* **Rationale:** Professional logging standards with configurable verbosity and dual output streams
+* **Implementation:** `utils/logging_config.py` provides centralized setup and module-level logger factory
+* **Features:** 
+  * File and console logging with different format styles
+  * Runtime log level configuration via environment variables and CLI arguments
+  * Automatic log directory creation following Windows conventions
+  * Professional timestamp and module identification formatting
+
+### **3.7. Data Persistence**
 
 * **Choice:** **SQLite (via sqlite3 Python Standard Library)**  
 * **Rationale:** A serverless, self-contained database perfect for local application data.
 
-#### **3.6.1. Detailed Database Schema**
+#### **3.7.1. Detailed Database Schema**
 
 \-- Configuration table for storing settings like the API key and game path.  
 CREATE TABLE config (  
@@ -135,3 +142,132 @@ CREATE TABLE deployed\_files (
     deployed\_path TEXT NOT NULL, \-- The relative path of the deployed file.  
     FOREIGN KEY (mod\_id) REFERENCES mods (id) ON DELETE CASCADE  
 );  
+
+## **4. Logging Architecture & Standards**
+
+### **4.1. Logging Framework**
+
+The application implements a centralized logging system using Python's built-in `logging` module with the following characteristics:
+
+* **Centralized Configuration:** All logging configuration is managed through `utils/logging_config.py`
+* **Dual Output Streams:** Console output for immediate feedback and file output for persistent logging
+* **Configurable Verbosity:** Runtime log level control via environment variables and command-line arguments
+* **Professional Standards:** Follows Python logging best practices with proper formatters and handlers
+
+### **4.2. Log Levels & Usage Guidelines**
+
+#### **4.2.1. Log Level Definitions**
+
+* **DEBUG:** Detailed diagnostic information for troubleshooting and development
+  * Example: API request/response details, file operation steps, database queries
+* **INFO:** General operational information about application flow and user actions
+  * Example: Application startup, mod installation success, configuration changes
+* **WARNING:** Potentially harmful situations that don't prevent operation
+  * Example: Missing optional configurations, deprecated API usage, recoverable errors
+* **ERROR:** Error events that allow the application to continue running
+  * Example: Failed API requests, file operation failures, database connection issues
+* **CRITICAL:** Serious errors that may cause the application to abort
+  * Example: Database corruption, critical configuration failures, unrecoverable system errors
+
+#### **4.2.2. Implementation Standards**
+
+**Module-Level Logger Initialization:**
+```python
+from utils.logging_config import get_logger
+
+# Initialize logger for this module
+logger = get_logger(__name__)
+```
+
+**Proper Log Message Formatting:**
+```python
+# Good - Contextual information with relevant details
+logger.info(f"Successfully installed mod '{mod_name}' version {version}")
+logger.error(f"Failed to download mod {mod_id}: {error_message}")
+
+# Avoid - Generic messages without context
+logger.info("Operation completed")
+logger.error("Something went wrong")
+```
+
+### **4.3. Log File Management**
+
+#### **4.3.1. Storage Location**
+
+* **File Path:** `%LOCALAPPDATA%\Stalker 2 Mod Manager\logs\stalker2_mod_manager.log`
+* **Rationale:** Local AppData for machine-specific logs that don't need to roam
+* **Format:** UTF-8 encoded text files with timestamp, module, level, and message information
+
+#### **4.3.2. Log File Format**
+
+**File Log Format (Detailed):**
+```
+2025-01-15 14:30:22 - gui.main_window - INFO - main_window.py:125 - Successfully initialized mod list with 15 mods
+```
+
+**Console Log Format (Simplified):**
+```
+14:30:22 - INFO - Successfully initialized mod list with 15 mods
+```
+
+### **4.4. Runtime Configuration**
+
+#### **4.4.1. Command-Line Interface**
+
+The `run.bat` script supports log level configuration:
+
+```batch
+run.bat --log-level DEBUG    # Detailed debugging output
+run.bat --log-level INFO     # Standard operational logging (default)
+run.bat --log-level WARNING  # Warnings and errors only
+run.bat --log-level ERROR    # Errors only
+```
+
+#### **4.4.2. Environment Variable Support**
+
+```batch
+set LOG_LEVEL=DEBUG
+python main.py
+```
+
+### **4.5. Development Guidelines**
+
+#### **4.5.1. Mandatory Logging Requirements**
+
+1. **All modules MUST use the centralized logging system** - No `print()` statements in production code
+2. **Logger instances MUST be created per module** - Use `get_logger(__name__)`
+3. **Exception handling MUST include appropriate logging** - Log errors with context
+4. **User actions SHOULD be logged at INFO level** - Track application usage patterns
+5. **System operations MUST be logged** - File operations, database changes, API calls
+
+#### **4.5.2. Code Review Checklist**
+
+- [ ] All `print()` statements replaced with appropriate logger calls
+- [ ] Module includes `from utils.logging_config import get_logger`
+- [ ] Logger instance created with `logger = get_logger(__name__)`
+- [ ] Log messages include relevant context (IDs, filenames, error details)
+- [ ] Appropriate log levels used (DEBUG/INFO/WARNING/ERROR/CRITICAL)
+- [ ] Exception handling includes error logging with stack traces when appropriate
+
+#### **4.5.3. Testing Logging**
+
+* **Log Level Testing:** Verify all log levels produce expected output
+* **File Output Verification:** Confirm logs are written to correct location
+* **Performance Impact:** Ensure logging doesn't significantly impact application performance
+* **Error Handling:** Test logging system behavior during disk space issues or permission problems
+
+### **4.6. Troubleshooting & Support**
+
+#### **4.6.1. Log Analysis**
+
+Users experiencing issues should be directed to:
+1. Enable DEBUG logging: `run.bat --log-level DEBUG`
+2. Reproduce the issue
+3. Locate log file at: `%LOCALAPPDATA%\Stalker 2 Mod Manager\logs\stalker2_mod_manager.log`
+4. Share relevant log excerpts for support
+
+#### **4.6.2. Log File Maintenance**
+
+* **Rotation:** Currently appends to single file (future enhancement: size-based rotation)
+* **Cleanup:** Users can manually delete old log files if needed
+* **Privacy:** Log files may contain API keys or file paths - advise users when sharing logs

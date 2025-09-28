@@ -8,6 +8,10 @@ import time
 from typing import Dict, List, Optional, Callable
 from enum import Enum
 from dataclasses import dataclass, field
+from utils.logging_config import get_logger
+# Initialize logger for this module
+logger = get_logger(__name__)
+
 
 
 class TaskType(Enum):
@@ -101,7 +105,7 @@ class ThreadManager:
                     self._mark_task_completed(task_id, TaskStatus.COMPLETED)
                 except Exception as e:
                     self._mark_task_completed(task_id, TaskStatus.FAILED)
-                    print(f"Task {task_id} failed: {e}")
+                    logger.error(f"Task {task_id} failed: {e}")
             
             # Create thread (not daemon - we want to track them)
             thread = threading.Thread(
@@ -164,7 +168,7 @@ class ThreadManager:
                 try:
                     task.cancel_callback()
                 except Exception as e:
-                    print(f"Error calling cancel callback for task {task_id}: {e}")
+                    logger.error(f"Error calling cancel callback for task {task_id}: {e}")
             
             # Mark as cancelled
             task.status = TaskStatus.CANCELLED
@@ -280,14 +284,14 @@ class ThreadManager:
         
         # First, try to cancel all tasks
         cancelled_count = self.cancel_all_tasks()
-        print(f"Cancelled {cancelled_count} background tasks")
+        logger.info(f"Cancelled {cancelled_count} background tasks")
         
         # Wait for tasks to complete
         if self.wait_for_all_tasks(timeout):
-            print("All background tasks completed gracefully")
+            logger.info("All background tasks completed gracefully")
             return True
         else:
-            print(f"Some tasks didn't complete within {timeout} seconds")
+            logger.info(f"Some tasks didn't complete within {timeout} seconds")
             # Force completion by marking remaining tasks as cancelled
             running_tasks = self.get_running_tasks()
             for task in running_tasks:

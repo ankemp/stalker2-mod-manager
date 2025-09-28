@@ -12,6 +12,10 @@ from typing import List, Optional
 from api.nexus_api import NexusModsClient, NexusAPIError
 from utils.thread_manager import BackgroundTask, get_thread_manager
 import config
+from utils.logging_config import get_logger
+# Initialize logger for this module
+logger = get_logger(__name__)
+
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -481,7 +485,7 @@ class SettingsDialog(BaseDialog):
                 self.mods_path_var.set(mods_path)
                 
         except Exception as e:
-            print(f"Error loading settings: {e}")
+            logger.error(f"Error loading settings: {e}")
             logger.error(f"Error loading settings: {e}")
     
     def setup_ui(self):
@@ -735,7 +739,7 @@ class SettingsDialog(BaseDialog):
             can_cancel=True
         )
         
-        print(f"Started API validation task: {task_id}")
+        logger.info(f"Started API validation task: {task_id}")
     
     def _update_validation_success(self, user_info, rate_limits):
         """Update UI after successful API validation"""
@@ -851,7 +855,7 @@ class SettingsDialog(BaseDialog):
             can_cancel=True
         )
         
-        print(f"Started rate limit check task: {task_id}")
+        logger.info(f"Started rate limit check task: {task_id}")
     
     def _show_rate_limits_dialog(self, rate_limits):
         """Show rate limits in a message dialog"""
@@ -1483,7 +1487,7 @@ class ShutdownConfirmationDialog:
                     cancelled_count += 1
         
         if cancelled_count > 0:
-            print(f"User requested cancellation of {cancelled_count} tasks")
+            logger.debug(f"User requested cancellation of {cancelled_count} tasks")
         
         self.dialog.destroy()
     
@@ -1682,7 +1686,7 @@ class TaskMonitorDialog:
                     cancelled_count += 1
         
         if cancelled_count > 0:
-            print(f"Cancelled {cancelled_count} tasks")
+            logger.info(f"Cancelled {cancelled_count} tasks")
     
     def _on_close(self):
         """Handle dialog close"""

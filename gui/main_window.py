@@ -8,7 +8,11 @@ import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
 from gui.dialogs import AddModDialog, SettingsDialog, DeploymentSelectionDialog, ShutdownConfirmationDialog, TaskMonitorDialog
 from gui.components import ModListFrame, ModDetailsFrame, StatusBar
+from utils.logging_config import get_logger
 import os
+
+# Initialize logger for this module
+logger = get_logger(__name__)
 
 
 class MainWindow:
@@ -78,7 +82,7 @@ class MainWindow:
                 self.status_bar.set_connection_status("No API key configured")
                 
         except Exception as e:
-            print(f"Error initializing API components: {e}")
+            logger.error(f"Error initializing API components: {e}")
             self.status_bar.set_status(f"Error initializing API components: {e}")
     
     def init_basic_config_if_needed(self):
@@ -87,10 +91,10 @@ class MainWindow:
             # Check if basic configuration exists
             existing_config = self.config_manager.get_all_config()
             if len(existing_config) > 0:
-                print("Configuration already exists")
+                logger.info("Configuration already exists")
                 return  # Configuration exists
             
-            print("Initializing basic configuration for first run...")
+            logger.info("Initializing basic configuration for first run...")
             
             # Import config for accessing constants
             import config as app_config
@@ -101,12 +105,12 @@ class MainWindow:
             
             # Set default mod storage directory
             self.config_manager.set_mods_directory(app_config.DEFAULT_MODS_DIR)
-            print(f"Set default mod storage directory: {app_config.DEFAULT_MODS_DIR}")
+            logger.info(f"Set default mod storage directory: {app_config.DEFAULT_MODS_DIR}")
             
-            print("Basic configuration initialized successfully")
+            logger.info("Basic configuration initialized successfully")
             
         except Exception as e:
-            print(f"Error initializing basic configuration: {e}")
+            logger.error(f"Error initializing basic configuration: {e}")
             import traceback
             traceback.print_exc()
     
@@ -126,16 +130,16 @@ class MainWindow:
             if detected_path:
                 # Silently set the detected path
                 self.config_manager.set_game_path(detected_path)
-                print(f"Auto-detected game path: {detected_path}")
+                logger.info(f"Auto-detected game path: {detected_path}")
                 
                 # Optionally show a notification to the user
                 # We'll do this in a non-blocking way using after()
                 self.root.after(1000, lambda: self._show_game_path_detection_notification(detected_path))
             else:
-                print("No game path auto-detected")
+                logger.debug("No game path auto-detected")
                 
         except Exception as e:
-            print(f"Error during auto game path detection: {e}")
+            logger.warning(f"Error during auto game path detection: {e}")
             # Don't show error to user during startup - just log it
     
     def _show_game_path_detection_notification(self, detected_path):
@@ -149,7 +153,7 @@ class MainWindow:
                     # Clear the message after 3 seconds
                     self.root.after(3000, lambda: self.status_bar.set_status("Ready"))
         except Exception as e:
-            print(f"Error showing detection notification: {e}")
+            logger.error(f"Error showing detection notification: {e}")
     
     def setup_menu(self):
         """Create the application menu bar"""
@@ -507,7 +511,7 @@ class MainWindow:
                 can_cancel=True  # Downloads can be cancelled
             )
             
-            print(f"Started download task: {task_id}")
+            logger.info(f"Started download task: {task_id}")
             
         except Exception as e:
             messagebox.showerror("Error", f"Error processing URL: {e}")
@@ -648,7 +652,7 @@ class MainWindow:
             can_cancel=True  # Installations can be cancelled
         )
         
-        print(f"Started installation task: {task_id}")
+        logger.info(f"Started installation task: {task_id}")
     
     def refresh_mod_list(self):
         """Refresh the mod list display"""
@@ -660,11 +664,11 @@ class MainWindow:
                     # Force UI update to ensure rendering
                     self.root.update_idletasks() 
                 else:
-                    print("Warning: mod_list_frame missing load_mod_data method")
+                    logger.warning("Warning: mod_list_frame missing load_mod_data method")
             else:
-                print("Warning: mod_list_frame not available for refresh")
+                logger.warning("Warning: mod_list_frame not available for refresh")
         except Exception as e:
-            print(f"Error refreshing mod list: {e}")
+            logger.error(f"Error refreshing mod list: {e}")
             import traceback
             traceback.print_exc()
     
@@ -683,11 +687,11 @@ class MainWindow:
                         # Force a refresh to ensure content is displayed
                         self.mod_list_frame.refresh_list()
                     else:
-                        print("Warning: Mod list tree is not properly visible")
+                        logger.warning("Warning: Mod list tree is not properly visible")
                         # Try again after a short delay
                         self.root.after(100, self._ensure_ui_layout)
         except Exception as e:
-            print(f"Error ensuring UI layout: {e}")
+            logger.error(f"Error ensuring UI layout: {e}")
     
     def show_window(self):
         """Show the main window and ensure proper rendering"""
@@ -706,14 +710,14 @@ class MainWindow:
             self.root.after(50, self.refresh_mod_list)
             
         except Exception as e:
-            print(f"Error showing window: {e}")
+            logger.error(f"Error showing window: {e}")
     
     def hide_window(self):
         """Hide the main window"""
         try:
             self.root.withdraw()
         except Exception as e:
-            print(f"Error hiding window: {e}")
+            logger.error(f"Error hiding window: {e}")
     
     def _on_window_mapped(self, event=None):
         """Handle window being mapped (shown)"""
@@ -762,7 +766,7 @@ class MainWindow:
                     self.init_api_components()
                 
             except Exception as e:
-                print(f"Error saving settings: {e}")
+                logger.error(f"Error saving settings: {e}")
                 self.status_bar.set_status(f"Error saving settings: {e}")
     
     def enable_selected_mod(self):
@@ -809,7 +813,7 @@ class MainWindow:
                 self.status_bar.set_status(f"Failed to enable mod: {mod_data.get('name', 'Unknown')}")
                 
         except Exception as e:
-            print(f"Error enabling mod: {e}")
+            logger.error(f"Error enabling mod: {e}")
             self.status_bar.set_status(f"Error enabling mod: {e}")
     
     def disable_mod(self, mod_data):
@@ -831,7 +835,7 @@ class MainWindow:
                 self.status_bar.set_status(f"Failed to disable mod: {mod_data.get('name', 'Unknown')}")
                 
         except Exception as e:
-            print(f"Error disabling mod: {e}")
+            logger.error(f"Error disabling mod: {e}")
             self.status_bar.set_status(f"Error disabling mod: {e}")
     
     def configure_file_deployment(self):
@@ -855,12 +859,12 @@ class MainWindow:
                 if mod_id and selected_files:
                     self.deployment_manager.save_deployment_selections(mod_id, selected_files)
                     self.status_bar.set_status(f"Updated deployment configuration for: {mod_data.get('name', 'Unknown')}")
-                    print(f"Saved {len(selected_files)} deployment selections for mod {mod_id}")
+                    logger.info(f"Saved {len(selected_files)} deployment selections for mod {mod_id}")
                 else:
                     self.status_bar.set_status("No files selected for deployment")
                     
             except Exception as e:
-                print(f"Error saving deployment selections: {e}")
+                logger.error(f"Error saving deployment selections: {e}")
                 self.status_bar.set_status(f"Error saving deployment configuration: {e}")
         else:
             self.status_bar.set_status("Deployment configuration cancelled")
@@ -889,9 +893,9 @@ class MainWindow:
                         deployed_files = self.deployment_manager.get_deployed_file_paths(mod_id)
                         if deployed_files:
                             self.file_manager.remove_deployed_files(deployed_files)
-                            print(f"Removed {len(deployed_files)} deployed files")
+                            logger.info(f"Removed {len(deployed_files)} deployed files")
                     except Exception as e:
-                        print(f"Error removing deployed files: {e}")
+                        logger.error(f"Error removing deployed files: {e}")
                 
                 # Remove mod archive file if it exists
                 if mod_id:
@@ -906,9 +910,9 @@ class MainWindow:
                                 archive_path = os.path.join(app_config.DEFAULT_MODS_DIR, archive_filename)
                                 if os.path.exists(archive_path):
                                     os.remove(archive_path)
-                                    print(f"Removed archive file: {archive_filename}")
+                                    logger.info(f"Removed archive file: {archive_filename}")
                     except Exception as e:
-                        print(f"Error removing archive file: {e}")
+                        logger.error(f"Error removing archive file: {e}")
                 
                 # Remove from database (cascading delete will handle related records)
                 if mod_id and self.mod_list_frame:
@@ -923,7 +927,7 @@ class MainWindow:
                     self.status_bar.set_status("Error: Could not identify mod to remove")
                     
             except Exception as e:
-                print(f"Error during mod removal: {e}")
+                logger.error(f"Error during mod removal: {e}")
                 self.status_bar.set_status(f"Error removing mod: {e}")
     
     def check_for_updates(self):
@@ -1012,7 +1016,7 @@ class MainWindow:
             can_cancel=True
         )
         
-        print(f"Started update check task: {task_id}")
+        logger.info(f"Started update check task: {task_id}")
     
     def show_update_results(self, updates_available, errors):
         """Show the results of update checking"""
@@ -1163,7 +1167,7 @@ class MainWindow:
                         except Exception as e:
                             error_msg = f"Error removing files for '{mod['mod_name']}': {e}"
                             errors.append(error_msg)
-                            print(error_msg)
+                            logger.error(error_msg)
                 
                 # Deploy files from enabled mods
                 if enabled_mods:
@@ -1218,7 +1222,7 @@ class MainWindow:
                         except Exception as e:
                             error_msg = f"Error deploying '{mod['mod_name']}': {e}"
                             errors.append(error_msg)
-                            print(error_msg)
+                            logger.error(error_msg)
                 
                 # Show results on main thread
                 self.root.after(0, lambda: self.status_bar.set_progress(0))
@@ -1248,7 +1252,7 @@ class MainWindow:
             can_cancel=False  # Deployments shouldn't be cancelled mid-way
         )
         
-        print(f"Started deployment task: {task_id}")
+        logger.info(f"Started deployment task: {task_id}")
     
     def show_deployment_results(self, deployed_count, errors):
         """Show the results of deployment"""
@@ -1393,7 +1397,7 @@ class MainWindow:
                         try:
                             os.remove(old_path)
                         except Exception as e:
-                            print(f"Warning: Could not remove old archive: {e}")
+                            logger.warning(f"Warning: Could not remove old archive: {e}")
                     
                     # Update archive record
                     file_info = self.nexus_client.get_file_info(nexus_mod_id, current_file_id)
@@ -1463,7 +1467,7 @@ class MainWindow:
             can_cancel=True
         )
         
-        print(f"Started mod update task: {task_id}")
+        logger.info(f"Started mod update task: {task_id}")
     
     def open_game_directory(self):
         """Open the game directory in file explorer"""
@@ -1550,31 +1554,31 @@ class MainWindow:
                     return
             
             # Perform graceful shutdown of thread manager
-            print("Shutting down background tasks...")
+            logger.info("Shutting down background tasks...")
             shutdown_success = thread_manager.shutdown(timeout=5.0)
             
             if not shutdown_success:
-                print("Warning: Some background tasks may not have completed cleanly")
+                logger.warning("Warning: Some background tasks may not have completed cleanly")
             
             # Close database connections
             if hasattr(self, 'db_manager') and self.db_manager:
                 # The database connection is handled via context managers
                 # No explicit cleanup needed, but we can log it
-                print("Database connections will be closed automatically")
+                logger.info("Database connections will be closed automatically")
             
             # Close Nexus API client session
             if hasattr(self, 'nexus_client') and self.nexus_client:
                 try:
                     self.nexus_client.close()
-                    print("Nexus API client session closed")
+                    logger.info("Nexus API client session closed")
                 except Exception as e:
-                    print(f"Error closing Nexus API client: {e}")
+                    logger.error(f"Error closing Nexus API client: {e}")
             
             # Any other cleanup operations can go here
-            print("Application cleanup completed")
+            logger.info("Application cleanup completed")
             
         except Exception as e:
-            print(f"Error during application cleanup: {e}")
+            logger.error(f"Error during application cleanup: {e}")
         finally:
             # Close the main window
             self.root.quit()

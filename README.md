@@ -159,7 +159,9 @@ stalker-mod-manager/
 ├── api/                    # Nexus Mods API integration
 │   └── nexus_api.py        # API client
 ├── utils/                  # Utility functions and file management
-│   └── file_manager.py     # Comprehensive file management system
+│   ├── file_manager.py     # Comprehensive file management system
+│   ├── logging_config.py   # Centralized logging configuration
+│   └── thread_manager.py   # Background task management
 └── docs/                   # Documentation
     └── application-spec.md # Detailed specification
 ```
@@ -200,6 +202,10 @@ The application stores data in AppData following Windows conventions:
 python main.py
 # or
 run.bat
+
+# Launch with specific log level
+run.bat --log-level DEBUG    # Detailed debugging
+run.bat --log-level WARNING  # Warnings and errors only
 
 # Run comprehensive test suite
 run.bat test
@@ -374,6 +380,9 @@ python scripts/validate_api_compliance.py
 - ✅ Multi-command run script with testing, demos, validation
 - ✅ API compliance validation tools
 - ✅ Database management utilities
+- ✅ **Centralized logging system with configurable verbosity**
+- ✅ **Professional logging infrastructure with file and console output**
+- ✅ **Log level control via command line arguments and environment variables**
 
 
 ### 🚧 **In Progress / Remaining Features**

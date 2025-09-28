@@ -6,6 +6,10 @@ import tkinter as tk
 from tkinter import ttk
 import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
+from utils.logging_config import get_logger
+# Initialize logger for this module
+logger = get_logger(__name__)
+
 
 class ModListFrame:
     """Frame containing the list of installed mods"""
@@ -39,13 +43,13 @@ class ModListFrame:
                     else:
                         mod["status"] = "disabled"
                 
-                print(f"Loaded {len(self.mod_data)} mods from database")
+                logger.info(f"Loaded {len(self.mod_data)} mods from database")
                 
             except Exception as e:
-                print(f"Error loading mods from database: {e}")
+                logger.error(f"Error loading mods from database: {e}")
                 self.mod_data = {}  # Initialize with empty state
         else:
-            print("No mod manager available - starting with empty mod list")
+            logger.info("No mod manager available - starting with empty mod list")
             self.mod_data = {}  # Start with empty state
         
         self.refresh_list()
@@ -143,7 +147,7 @@ class ModListFrame:
             self.parent.update_idletasks()
             
         except Exception as e:
-            print(f"Error setting up mod list UI: {e}")
+            logger.error(f"Error setting up mod list UI: {e}")
             import traceback
             traceback.print_exc()
     
@@ -155,13 +159,13 @@ class ModListFrame:
                 self.mod_manager.set_mod_enabled(mod_id, enabled)
                 # Reload data to reflect changes
                 self.load_mod_data()
-                print(f"Mod {mod_id} {'enabled' if enabled else 'disabled'}")
+                logger.info(f"Mod {mod_id} {'enabled' if enabled else 'disabled'}")
                 return True
             except Exception as e:
-                print(f"Error toggling mod {mod_id}: {e}")
+                logger.error(f"Error toggling mod {mod_id}: {e}")
                 return False
         else:
-            print("No mod manager available - cannot toggle mod status")
+            logger.info("No mod manager available - cannot toggle mod status")
             return False
     
     def get_selected_mod(self):
@@ -179,13 +183,13 @@ class ModListFrame:
             try:
                 self.mod_manager.remove_mod(mod_id)
                 self.load_mod_data()  # Refresh the list
-                print(f"Mod {mod_id} removed from database")
+                logger.info(f"Mod {mod_id} removed from database")
                 return True
             except Exception as e:
-                print(f"Error removing mod {mod_id}: {e}")
+                logger.error(f"Error removing mod {mod_id}: {e}")
                 return False
         else:
-            print("No mod manager available - cannot remove mod")
+            logger.info("No mod manager available - cannot remove mod")
             return False
     
     def refresh_list(self):
@@ -193,7 +197,7 @@ class ModListFrame:
         try:
             # Ensure tree widget exists and is properly initialized
             if not hasattr(self, 'tree') or not self.tree.winfo_exists():
-                print("Warning: Tree widget not properly initialized, attempting to recreate...")
+                logger.warning("Warning: Tree widget not properly initialized, attempting to recreate...")
                 self.setup_ui()
                 return
             
@@ -225,7 +229,7 @@ class ModListFrame:
                 self.parent.update_idletasks()
                 
         except Exception as e:
-            print(f"Error refreshing mod list: {e}")
+            logger.error(f"Error refreshing mod list: {e}")
             import traceback
             traceback.print_exc()
             # Try to recover by showing empty state
@@ -385,7 +389,7 @@ class ModListFrame:
                 self.load_mod_data()
                 return True
             except Exception as e:
-                print(f"Error updating mod status: {e}")
+                logger.error(f"Error updating mod status: {e}")
                 return False
         else:
             # Fallback to local data update
@@ -666,7 +670,7 @@ class ModDetailsFrame:
                     self.show_no_deployed_files()
                     
             except Exception as e:
-                print(f"Error loading deployed files: {e}")
+                logger.error(f"Error loading deployed files: {e}")
                 self.show_deployed_files_error()
         else:
             # No deployment manager or mod ID available
