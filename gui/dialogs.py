@@ -23,10 +23,19 @@ class BaseDialog:
     def __init__(self, parent, title="Dialog", minsize=(300, 200), resizable=False):
         self.parent = parent
         self.result = None
+        
+        # Determine the Tkinter root window
+        # If parent is a MainWindow instance, get its root attribute
+        # Otherwise assume parent is already a Tkinter widget
+        if hasattr(parent, 'root') and hasattr(parent.root, 'winfo_exists'):
+            root_window = parent.root
+        else:
+            root_window = parent
+        
         # Create modal dialog
-        self.dialog = tk.Toplevel(parent)
+        self.dialog = tk.Toplevel(root_window)
         self.dialog.title(title)
-        self.dialog.transient(parent)
+        self.dialog.transient(root_window)
         self.dialog.grab_set()
         self.dialog.resizable(resizable, resizable)
         # Setup dialog content
@@ -35,16 +44,16 @@ class BaseDialog:
         self.dialog.update_idletasks()
         if minsize:
             self.dialog.minsize(*minsize)
-        self.center_dialog()
+        self.center_dialog(root_window)
         # Handle dialog close
         self.dialog.protocol("WM_DELETE_WINDOW", self.cancel)
     
-    def center_dialog(self):
+    def center_dialog(self, root_window):
         """Center the dialog on the parent window"""
         self.dialog.update_idletasks()
-        x = (self.parent.winfo_rootx() + self.parent.winfo_width() // 2 - 
+        x = (root_window.winfo_rootx() + root_window.winfo_width() // 2 - 
              self.dialog.winfo_width() // 2)
-        y = (self.parent.winfo_rooty() + self.parent.winfo_height() // 2 - 
+        y = (root_window.winfo_rooty() + root_window.winfo_height() // 2 - 
              self.dialog.winfo_height() // 2)
         self.dialog.geometry(f"+{x}+{y}")
     
@@ -1189,9 +1198,15 @@ class ShutdownConfirmationDialog:
             'cancel' - Cancel shutdown, return to application
             None - Dialog was closed without selection
         """
-        self.dialog = tk.Toplevel(self.parent)
+        # Determine the Tkinter root window
+        if hasattr(self.parent, 'root') and hasattr(self.parent.root, 'winfo_exists'):
+            root_window = self.parent.root
+        else:
+            root_window = self.parent
+            
+        self.dialog = tk.Toplevel(root_window)
         self.dialog.title("Background Tasks Running")
-        self.dialog.transient(self.parent)
+        self.dialog.transient(root_window)
         self.dialog.grab_set()
         self.dialog.resizable(False, False)
         
@@ -1200,9 +1215,9 @@ class ShutdownConfirmationDialog:
         
         # Center dialog
         self.dialog.update_idletasks()
-        x = (self.parent.winfo_rootx() + self.parent.winfo_width() // 2 - 
+        x = (root_window.winfo_rootx() + root_window.winfo_width() // 2 - 
              self.dialog.winfo_width() // 2)
-        y = (self.parent.winfo_rooty() + self.parent.winfo_height() // 2 - 
+        y = (root_window.winfo_rooty() + root_window.winfo_height() // 2 - 
              self.dialog.winfo_height() // 2)
         self.dialog.geometry(f"+{x}+{y}")
         
@@ -1439,9 +1454,15 @@ class TaskMonitorDialog:
         
     def show(self):
         """Show the task monitor dialog"""
-        self.dialog = tk.Toplevel(self.parent)
+        # Determine the Tkinter root window
+        if hasattr(self.parent, 'root') and hasattr(self.parent.root, 'winfo_exists'):
+            root_window = self.parent.root
+        else:
+            root_window = self.parent
+            
+        self.dialog = tk.Toplevel(root_window)
         self.dialog.title("Background Tasks")
-        self.dialog.transient(self.parent)
+        self.dialog.transient(root_window)
         self.dialog.resizable(True, True)
         
         # Set dialog size
@@ -1449,9 +1470,9 @@ class TaskMonitorDialog:
         
         # Center dialog
         self.dialog.update_idletasks()
-        x = (self.parent.winfo_rootx() + self.parent.winfo_width() // 2 - 
+        x = (root_window.winfo_rootx() + root_window.winfo_width() // 2 - 
              self.dialog.winfo_width() // 2)
-        y = (self.parent.winfo_rooty() + self.parent.winfo_height() // 2 - 
+        y = (root_window.winfo_rooty() + root_window.winfo_height() // 2 - 
              self.dialog.winfo_height() // 2)
         self.dialog.geometry(f"+{x}+{y}")
         

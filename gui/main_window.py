@@ -41,12 +41,12 @@ class MainWindow:
         
         # Auto-detect game path on first run if not set
         self.auto_detect_game_path_if_needed()
+
+        # Initialize basic configuration if needed (no sample data)
+        self.init_basic_config_if_needed()
         
         # Initialize API components after UI is ready
         self.init_api_components()
-        
-        # Initialize basic configuration if needed (no sample data)
-        self.init_basic_config_if_needed()
     
     def init_api_components(self):
         """Initialize API client and file manager based on current settings"""
@@ -347,7 +347,7 @@ class MainWindow:
     # Menu and toolbar action handlers
     def add_mod_from_url(self):
         """Show dialog to add mod from Nexus URL"""
-        dialog = AddModDialog(self.root, mode="url")
+        dialog = AddModDialog(self, mode="url") 
         result = dialog.show()
         if result:
             self.download_mod_from_url(result)
@@ -503,7 +503,7 @@ class MainWindow:
     
     def add_mod_from_file(self):
         """Show dialog to add mod from local file"""
-        dialog = AddModDialog(self.root, mode="file")
+        dialog = AddModDialog(self, mode="file")
         result = dialog.show()
         if result:
             self.install_mod_from_file(result)
@@ -648,7 +648,7 @@ class MainWindow:
         from gui.dialogs import SettingsDialog
         
         # Create dialog with current settings
-        dialog = SettingsDialog(self.root, self.config_manager)
+        dialog = SettingsDialog(self, self.config_manager) 
         result = dialog.show()
         if result:
             try:
@@ -703,7 +703,7 @@ class MainWindow:
             if not selections:
                 # Show file selection dialog first
                 from gui.dialogs import DeploymentSelectionDialog
-                dialog = DeploymentSelectionDialog(self.root, mod_data)
+                dialog = DeploymentSelectionDialog(self, mod_data)  
                 result = dialog.show()
                 if not result:
                     return  # User cancelled
@@ -758,7 +758,7 @@ class MainWindow:
     
     def configure_file_deployment_for_mod(self, mod_data):
         """Show file deployment configuration for a specific mod"""
-        dialog = DeploymentSelectionDialog(self.root, mod_data)
+        dialog = DeploymentSelectionDialog(self, mod_data)  
         result = dialog.show()
         if result:
             # Save deployment selections to database
@@ -1414,7 +1414,7 @@ class MainWindow:
     
     def show_task_monitor(self):
         """Show the task monitor dialog"""
-        dialog = TaskMonitorDialog(self.root)
+        dialog = TaskMonitorDialog(self)  
         dialog.show()
     
     def show_about(self):
@@ -1442,7 +1442,7 @@ class MainWindow:
             
             if running_tasks:
                 # Show shutdown confirmation dialog
-                dialog = ShutdownConfirmationDialog(self.root, running_tasks)
+                dialog = ShutdownConfirmationDialog(self, running_tasks)  
                 result = dialog.show()
                 
                 if result == "cancel":
@@ -1459,7 +1459,7 @@ class MainWindow:
                         # Tasks didn't complete in time, ask user again
                         remaining_tasks = thread_manager.get_running_tasks()
                         if remaining_tasks:
-                            dialog2 = ShutdownConfirmationDialog(self.root, remaining_tasks)
+                            dialog2 = ShutdownConfirmationDialog(self, remaining_tasks)  
                             result2 = dialog2.show()
                             if result2 == "cancel":
                                 self.status_bar.set_status("Shutdown cancelled")
