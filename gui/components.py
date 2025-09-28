@@ -656,6 +656,7 @@ class ModDetailsFrame:
         self.update_files_list(mod_data)
 
         # Enable action buttons
+        self.toggle_button.config(state=NORMAL)
         self.configure_files_button.config(state=NORMAL)
         self.remove_mod_button.config(state=NORMAL)
     
