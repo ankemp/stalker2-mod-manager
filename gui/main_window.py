@@ -92,9 +92,12 @@ class MainWindow:
             
             print("Initializing basic configuration for first run...")
             
+            # Import config for accessing constants
+            import config as app_config
+            
             # Set only essential configuration
             self.config_manager.set_auto_check_updates(True)
-            self.config_manager.set_update_interval(config.DEFAULT_UPDATE_INTERVAL_HOURS)
+            self.config_manager.set_update_interval(app_config.DEFAULT_UPDATE_INTERVAL_HOURS)
             
             print("Basic configuration initialized successfully")
             
