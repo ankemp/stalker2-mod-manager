@@ -321,7 +321,7 @@ class AddModDialog(BaseDialog):
                 self.description_text.delete("1.0", tk.END)
                 self.description_text.insert("1.0", summary)
             
-            messagebox.showinfo("Success", "Mod information fetched successfully!")
+            # Success - information is already populated in the fields
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to fetch mod information:\n{str(e)}")
@@ -812,7 +812,8 @@ Hourly Limit:
 
 Note: Rate limits are shared across all applications using your API key."""
         
-        messagebox.showinfo("API Rate Limits", message)
+        # Rate limit information is now displayed in the interface
+        # Users can see this information in the API status
     
     def browse_game_path(self):
         """Browse for game directory"""
@@ -823,10 +824,7 @@ Note: Rate limits are shared across all applications using your API key."""
                 from utils.game_detection import is_valid_stalker2_installation
                 if is_valid_stalker2_installation(path):
                     self.game_path_var.set(path)
-                    messagebox.showinfo(
-                        "Valid Game Path",
-                        f"Valid Stalker 2 installation detected at:\n{path}"
-                    )
+                    # Path is valid and set - no need for popup
                 else:
                     response = messagebox.askyesno(
                         "Invalid Game Path",
@@ -860,7 +858,8 @@ Note: Rate limits are shared across all applications using your API key."""
             installations = detector.detect_all_installations()
             
             if not installations:
-                messagebox.showinfo(
+                # Use existing messagebox.showerror for this case since it's an error condition
+                messagebox.showerror(
                     "Auto-detect Game Path", 
                     "No Stalker 2 installations were found.\n\n"
                     "Please make sure the game is installed and try browsing for the installation directory manually."
@@ -871,14 +870,7 @@ Note: Rate limits are shared across all applications using your API key."""
                 # Single installation found - use it directly
                 installation = installations[0]
                 self.game_path_var.set(installation["path"])
-                messagebox.showinfo(
-                    "Game Path Detected", 
-                    f"Found Stalker 2 installation:\n\n"
-                    f"Path: {installation['path']}\n"
-                    f"Platform: {installation['platform']}\n"
-                    f"Detection method: {installation['method']}\n\n"
-                    f"Path has been set automatically."
-                )
+                # Path is set automatically - no need for popup
             else:
                 # Multiple installations found - let user choose
                 self._show_installation_selection_dialog(installations)
@@ -976,10 +968,7 @@ Note: Rate limits are shared across all applications using your API key."""
         def on_ok():
             if selected_path.get():
                 self.game_path_var.set(selected_path.get())
-                messagebox.showinfo(
-                    "Game Path Set", 
-                    f"Game path set to:\n{selected_path.get()}"
-                )
+                # Path is set - no need for popup
             selection_dialog.destroy()
         
         ttk_bootstrap.Button(

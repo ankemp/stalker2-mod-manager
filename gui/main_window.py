@@ -393,9 +393,8 @@ class MainWindow:
                     # Check if mod already exists
                     existing_mod = self.mod_manager.get_mod_by_nexus_id(mod_id)
                     if existing_mod:
-                        self.root.after(0, lambda: messagebox.showinfo(
-                            "Mod Already Exists", 
-                            f"Mod '{mod_info['name']}' is already installed.\n\nUse 'Check Updates' to update existing mods."
+                        self.root.after(0, lambda: self.status_bar.set_status(
+                            f"Mod '{mod_info['name']}' is already installed. Use 'Check Updates' to update."
                         ))
                         return
                     
@@ -469,7 +468,7 @@ class MainWindow:
                         message += " and enabled it"
                     message += "."
                     
-                    self.root.after(0, lambda: messagebox.showinfo("Mod Added", message))
+                    self.root.after(0, lambda: self.status_bar.set_status(message))
                     
                 except NexusAPIError as e:
                     error_msg = f"Nexus API Error: {e}"
@@ -623,7 +622,7 @@ class MainWindow:
                     message += " and enabled it"
                 message += "."
                 
-                self.root.after(0, lambda: messagebox.showinfo("Mod Added", message))
+                self.root.after(0, lambda: self.status_bar.set_status(message))
                 
             except Exception as e:
                 error_msg = f"Error installing mod: {e}"
@@ -861,10 +860,7 @@ class MainWindow:
                 nexus_mods = [mod for mod in all_mods if mod.get('nexus_mod_id')]
                 
                 if not nexus_mods:
-                    self.root.after(0, lambda: messagebox.showinfo(
-                        "No Nexus Mods", 
-                        "No mods from Nexus Mods found to check for updates."
-                    ))
+                    self.root.after(0, lambda: self.status_bar.set_status("No Nexus mods to check for updates"))
                     self.root.after(0, lambda: self.status_bar.set_status("No Nexus mods to check"))
                     return
                 
@@ -910,10 +906,7 @@ class MainWindow:
                 if updates_available or errors:
                     self.root.after(0, lambda: self.show_update_results(updates_available, errors))
                 else:
-                    self.root.after(0, lambda: messagebox.showinfo(
-                        "No Updates", 
-                        "All mods are up to date!"
-                    ))
+                    # Status already set below
                     self.root.after(0, lambda: self.status_bar.set_status("All mods are up to date"))
                 
                 # Refresh mod list to show updated versions
@@ -1149,10 +1142,8 @@ class MainWindow:
                 if errors:
                     self.root.after(0, lambda: self.show_deployment_results(deployed_count, errors))
                 else:
-                    self.root.after(0, lambda: messagebox.showinfo(
-                        "Deployment Complete",
-                        f"Successfully deployed {deployed_count} mod(s) to the game directory."
-                    ))
+                    # Status bar already shows deployment complete message
+                    pass
                 
                 self.root.after(0, lambda: self.status_bar.set_status(f"Deployment complete. {deployed_count} mod(s) deployed."))
                 
@@ -1355,11 +1346,10 @@ class MainWindow:
                 self.root.after(0, lambda: self.status_bar.set_progress(0))
                 self.root.after(0, lambda: self.status_bar.set_status(f"Successfully updated mod: {mod_info['name']}"))
                 
-                # Show success message
-                self.root.after(0, lambda: messagebox.showinfo(
-                    "Mod Updated", 
-                    f"Successfully updated '{mod_info['name']}' to version {mod_info.get('version', '1.0.0')}.\n\n"
-                    "Note: File deployment selections have been cleared. Please reconfigure which files to deploy if the mod is enabled."
+                # Show success in status bar
+                self.root.after(0, lambda: self.status_bar.set_status(
+                    f"Successfully updated '{mod_info['name']}' to version {mod_info.get('version', '1.0.0')}. "
+                    "Note: File deployment selections have been cleared."
                 ))
                 
             except NexusAPIError as e:
