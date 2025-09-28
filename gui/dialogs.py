@@ -403,7 +403,7 @@ class SettingsDialog(BaseDialog):
                 # Check if we have validation info stored
                 try:
                     api_user = self.config_manager.get_config('api_user_name')
-                    is_premium = self.config_manager.get_config('api_is_premium', 'False')
+                    is_premium = self.config_manager.get_api_is_premium()
                     if api_user:
                         premium_text = " (Premium)" if is_premium else " (Free)"
                         self.api_status_var.set(f"✓ Configured for {api_user}{premium_text}")
@@ -693,7 +693,7 @@ class SettingsDialog(BaseDialog):
                 try:
                     self.config_manager.set_config('api_user_name', username)
                     self.config_manager.set_config('api_user_id', user_id)
-                    self.config_manager.set_config('api_is_premium', is_premium)
+                    self.config_manager.set_api_is_premium(is_premium)
                 except Exception as e:
                     logger.error(f"Failed to save API user info: {e}")
             

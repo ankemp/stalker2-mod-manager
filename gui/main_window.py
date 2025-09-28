@@ -69,7 +69,7 @@ class MainWindow:
                 # Check if we have stored user info from previous validation
                 api_user = self.config_manager.get_config('api_user_name')
                 if api_user:
-                    is_premium = self.config_manager.get_config('api_is_premium', 'False')
+                    is_premium = self.config_manager.get_api_is_premium()
                     premium_text = " (Premium)" if is_premium else " (Free)"
                     self.status_bar.set_connection_status(f"{api_user}{premium_text}")
                 else:

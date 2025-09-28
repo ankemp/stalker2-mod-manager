@@ -369,6 +369,14 @@ class ConfigManager:
     def set_show_notifications(self, enabled: bool) -> None:
         """Set system notifications setting"""
         self.set_config("show_notifications", "true" if enabled else "false")
+    
+    def get_api_is_premium(self) -> bool:
+        """Get whether the API user has premium status"""
+        return self.get_config("api_is_premium", "false").lower() == "true"
+    
+    def set_api_is_premium(self, is_premium: bool) -> None:
+        """Set whether the API user has premium status"""
+        self.set_config("api_is_premium", "true" if is_premium else "false")
 
 
 class ModManager:
