@@ -87,8 +87,20 @@ class AddModDialog(BaseDialog):
     def __init__(self, parent, mode="url"):
         self.mode = mode  # "url" or "file"
         title = "Add Mod from URL" if mode == "url" else "Add Mod from File"
-        # Use a larger minsize for file mode to accommodate extra fields
-        minsize = (400, 200) if mode == "url" else (520, 650)
+        # Use a larger minsize for URL mode if premium warning might be shown
+        # Check if we need to show premium warning
+        should_show_warning = False
+        if mode == "url":
+            try:
+                config_manager = getattr(parent, 'config_manager', None)
+                if config_manager:
+                    api_key = config_manager.get_api_key()
+                    is_premium = config_manager.get_api_is_premium()
+                    should_show_warning = api_key and not is_premium
+            except:
+                pass
+        
+        minsize = (420, 280) if (mode == "url" and should_show_warning) else (400, 200) if mode == "url" else (520, 650)
         super().__init__(parent, title, minsize=minsize)
     
     def setup_ui(self):
@@ -136,6 +148,9 @@ class AddModDialog(BaseDialog):
         )
         example_label.pack(anchor=W, pady=(0, 10))
         
+        # Premium warning for non-premium users
+        self.add_premium_warning_if_needed(parent)
+        
         # Options
         options_frame = ttk_bootstrap.LabelFrame(parent, text="Options")
         options_frame.pack(fill=X, pady=(0, 10))
@@ -153,6 +168,51 @@ class AddModDialog(BaseDialog):
             text="Check for updates automatically",
             variable=self.check_updates_var
         ).pack(anchor=W, padx=10, pady=5)
+    
+    def add_premium_warning_if_needed(self, parent):
+        """Add warning for non-premium users about download limitations"""
+        try:
+            # Get the config manager from parent (MainWindow)
+            config_manager = getattr(self.parent, 'config_manager', None)
+            if not config_manager:
+                return
+            
+            # Check if user has premium status
+            is_premium = config_manager.get_api_is_premium()
+            api_key = config_manager.get_api_key()
+            
+            # Only show warning if API key is configured but user is not premium
+            if api_key and not is_premium:
+                # Warning frame with border
+                warning_frame = ttk_bootstrap.LabelFrame(
+                    parent, 
+                    text="⚠️ Non-Premium Account Warning",
+                    bootstyle=WARNING
+                )
+                warning_frame.pack(fill=X, pady=(0, 10))
+                
+                # Warning text
+                warning_text = (
+                    "Direct downloads from URLs require a Premium Nexus account. "
+                    "You will get an error when trying to download.\n\n"
+                    "Workaround:\n"
+                    "1. Visit the mod page manually in your browser\n"
+                    "2. Download the mod file to your computer\n"
+                    "3. Use 'Add from File' button to install the downloaded mod"
+                )
+                
+                warning_label = ttk_bootstrap.Label(
+                    warning_frame,
+                    text=warning_text,
+                    font=("TkDefaultFont", 8),
+                    wraplength=370,
+                    justify="left"
+                )
+                warning_label.pack(anchor=W, padx=10, pady=10)
+                
+        except Exception as e:
+            # Silently fail if we can't determine premium status
+            logger.error(f"Error checking premium status for warning: {e}")
     
     def setup_file_ui(self, parent):
         """Setup UI for file input"""
