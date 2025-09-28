@@ -227,7 +227,9 @@ class MainWindow:
         self.status_bar = StatusBar(self.root)
         
         # Set initial paned window position
-        self.root.after(100, lambda: paned_window.sashpos(0, 600))
+        self.root.after(200, lambda: paned_window.sashpos(0, 600))
+        # Force layout update after a short delay to ensure proper rendering
+        self.root.after(50, self._ensure_ui_layout)
     
     def create_toolbar(self, parent):
         """Create the toolbar with main action buttons"""
@@ -310,6 +312,10 @@ class MainWindow:
         
         # Window close event
         self.root.protocol("WM_DELETE_WINDOW", self.close_application)
+        
+        # Window state change events to handle rendering issues
+        self.root.bind('<Map>', self._on_window_mapped)
+        self.root.bind('<Visibility>', self._on_window_visibility_changed)
     
     def on_mod_selected(self, mod_data):
         """Handle mod selection from the list"""
@@ -646,8 +652,82 @@ class MainWindow:
     
     def refresh_mod_list(self):
         """Refresh the mod list display"""
-        if hasattr(self, 'mod_list_frame'):
-            self.mod_list_frame.load_mod_data()
+        try:
+            if hasattr(self, 'mod_list_frame') and self.mod_list_frame:
+                # Ensure the UI is properly updated on the main thread
+                if hasattr(self.mod_list_frame, 'load_mod_data'):
+                    self.mod_list_frame.load_mod_data()
+                    # Force UI update to ensure rendering
+                    self.root.update_idletasks() 
+                else:
+                    print("Warning: mod_list_frame missing load_mod_data method")
+            else:
+                print("Warning: mod_list_frame not available for refresh")
+        except Exception as e:
+            print(f"Error refreshing mod list: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    def _ensure_ui_layout(self):
+        """Ensure UI layout is properly rendered"""
+        try:
+            # Force update of all widgets
+            self.root.update_idletasks()
+            
+            # Check if mod list frame is properly visible
+            if hasattr(self, 'mod_list_frame') and self.mod_list_frame:
+                if hasattr(self.mod_list_frame, 'tree'):
+                    # Ensure tree is visible and properly rendered
+                    tree = self.mod_list_frame.tree
+                    if tree.winfo_exists() and tree.winfo_viewable():
+                        # Force a refresh to ensure content is displayed
+                        self.mod_list_frame.refresh_list()
+                    else:
+                        print("Warning: Mod list tree is not properly visible")
+                        # Try again after a short delay
+                        self.root.after(100, self._ensure_ui_layout)
+        except Exception as e:
+            print(f"Error ensuring UI layout: {e}")
+    
+    def show_window(self):
+        """Show the main window and ensure proper rendering"""
+        try:
+            # Show the window
+            self.root.deiconify()
+            
+            # Force update to ensure proper layout
+            self.root.update_idletasks()
+            
+            # Ensure mod list is properly rendered
+            self._ensure_ui_layout()
+            
+            # Refresh mod list to ensure content is visible
+            # This fixes the issue where the list panel doesn't render when window was hidden
+            self.root.after(50, self.refresh_mod_list)
+            
+        except Exception as e:
+            print(f"Error showing window: {e}")
+    
+    def hide_window(self):
+        """Hide the main window"""
+        try:
+            self.root.withdraw()
+        except Exception as e:
+            print(f"Error hiding window: {e}")
+    
+    def _on_window_mapped(self, event=None):
+        """Handle window being mapped (shown)"""
+        if event and event.widget == self.root:
+            # Window is now visible, ensure UI is properly rendered
+            self.root.after(100, self._ensure_ui_layout)
+    
+    def _on_window_visibility_changed(self, event=None):
+        """Handle window visibility changes"""
+        if event and event.widget == self.root:
+            # Check if window became fully visible (state values: VisibilityUnobscured=0, VisibilityPartiallyObscured=1, VisibilityFullyObscured=2)
+            if hasattr(event, 'state') and event.state == 0:  # VisibilityUnobscured
+                # Window is fully visible, refresh mod list to ensure rendering
+                self.root.after(50, self.refresh_mod_list)
     
     def open_settings(self):
         """Show settings dialog"""

@@ -52,87 +52,100 @@ class ModListFrame:
     
     def setup_ui(self):
         """Setup the mod list UI"""
-        # Title
-        title_frame = ttk_bootstrap.Frame(self.parent)
-        title_frame.pack(fill=X, pady=(0, 10))
-        
-        ttk_bootstrap.Label(
-            title_frame,
-            text="Installed Mods",
-            font=("TkDefaultFont", 12, "bold")
-        ).pack(side=LEFT)
-        
-        # Filter/search frame
-        search_frame = ttk_bootstrap.Frame(self.parent)
-        search_frame.pack(fill=X, pady=(0, 10))
-        
-        ttk_bootstrap.Label(search_frame, text="Search:").pack(side=LEFT)
-        
-        self.search_var = tk.StringVar()
-        self.search_var.trace("w", self.on_search_changed)
-        search_entry = ttk_bootstrap.Entry(search_frame, textvariable=self.search_var)
-        search_entry.pack(side=LEFT, fill=X, expand=True, padx=(5, 0))
-        
-        # Filter by status
-        filter_frame = ttk_bootstrap.Frame(self.parent)
-        filter_frame.pack(fill=X, pady=(0, 10))
-        
-        ttk_bootstrap.Label(filter_frame, text="Filter:").pack(side=LEFT)
-        
-        self.filter_var = tk.StringVar(value="all")
-        filter_combo = ttk_bootstrap.Combobox(
-            filter_frame,
-            textvariable=self.filter_var,
-            values=["all", "enabled", "disabled", "outdated"],
-            state="readonly",
-            width=10
-        )
-        filter_combo.pack(side=LEFT, padx=(5, 0))
-        filter_combo.bind("<<ComboboxSelected>>", self.on_filter_changed)
-        
-        # Mod list with treeview
-        list_frame = ttk_bootstrap.Frame(self.parent)
-        list_frame.pack(fill=BOTH, expand=True)
-        
-        # Create treeview
-        self.tree = ttk_bootstrap.Treeview(
-            list_frame,
-            columns=("version", "status", "last_updated"),
-            show="tree headings",
-            selectmode="browse"
-        )
-        
-        # Configure columns
-        self.tree.heading("#0", text="Mod Name", anchor=W)
-        self.tree.heading("version", text="Version", anchor=CENTER)
-        self.tree.heading("status", text="Status", anchor=CENTER)
-        self.tree.heading("last_updated", text="Last Updated", anchor=CENTER)
-        
-        self.tree.column("#0", width=300, minwidth=200)
-        self.tree.column("version", width=100, minwidth=80)
-        self.tree.column("status", width=100, minwidth=80)
-        self.tree.column("last_updated", width=120, minwidth=100)
-        
-        # Scrollbars
-        tree_scroll_y = ttk_bootstrap.Scrollbar(list_frame, orient=VERTICAL, command=self.tree.yview)
-        tree_scroll_x = ttk_bootstrap.Scrollbar(list_frame, orient=HORIZONTAL, command=self.tree.xview)
-        self.tree.configure(yscrollcommand=tree_scroll_y.set, xscrollcommand=tree_scroll_x.set)
-        
-        # Pack treeview and scrollbars
-        self.tree.pack(side=LEFT, fill=BOTH, expand=True)
-        tree_scroll_y.pack(side=RIGHT, fill=Y)
-        tree_scroll_x.pack(side=BOTTOM, fill=X)
-        
-        # Bind events
-        self.tree.bind("<<TreeviewSelect>>", self.on_selection_changed)
-        self.tree.bind("<Double-1>", self.on_double_click)
-        
-        # Configure tags for different mod states
-        self.tree.tag_configure("enabled", foreground="green")
-        self.tree.tag_configure("disabled", foreground="gray")
-        self.tree.tag_configure("outdated", foreground="orange")
-        self.tree.tag_configure("error", foreground="red")
-        self.tree.tag_configure("empty", foreground="gray", font=("TkDefaultFont", 9, "italic"))
+        try:
+            # Clear any existing widgets
+            for widget in self.parent.winfo_children():
+                widget.destroy()
+            
+            # Title
+            title_frame = ttk_bootstrap.Frame(self.parent)
+            title_frame.pack(fill=X, pady=(0, 10))
+            
+            ttk_bootstrap.Label(
+                title_frame,
+                text="Installed Mods",
+                font=("TkDefaultFont", 12, "bold")
+            ).pack(side=LEFT)
+            
+            # Filter/search frame
+            search_frame = ttk_bootstrap.Frame(self.parent)
+            search_frame.pack(fill=X, pady=(0, 10))
+            
+            ttk_bootstrap.Label(search_frame, text="Search:").pack(side=LEFT)
+            
+            self.search_var = tk.StringVar()
+            self.search_var.trace("w", self.on_search_changed)
+            search_entry = ttk_bootstrap.Entry(search_frame, textvariable=self.search_var)
+            search_entry.pack(side=LEFT, fill=X, expand=True, padx=(5, 0))
+            
+            # Filter by status
+            filter_frame = ttk_bootstrap.Frame(self.parent)
+            filter_frame.pack(fill=X, pady=(0, 10))
+            
+            ttk_bootstrap.Label(filter_frame, text="Filter:").pack(side=LEFT)
+            
+            self.filter_var = tk.StringVar(value="all")
+            filter_combo = ttk_bootstrap.Combobox(
+                filter_frame,
+                textvariable=self.filter_var,
+                values=["all", "enabled", "disabled", "outdated"],
+                state="readonly",
+                width=10
+            )
+            filter_combo.pack(side=LEFT, padx=(5, 0))
+            filter_combo.bind("<<ComboboxSelected>>", self.on_filter_changed)
+            
+            # Mod list with treeview
+            list_frame = ttk_bootstrap.Frame(self.parent)
+            list_frame.pack(fill=BOTH, expand=True)
+            
+            # Create treeview
+            self.tree = ttk_bootstrap.Treeview(
+                list_frame,
+                columns=("version", "status", "last_updated"),
+                show="tree headings",
+                selectmode="browse"
+            )
+            
+            # Configure columns
+            self.tree.heading("#0", text="Mod Name", anchor=W)
+            self.tree.heading("version", text="Version", anchor=CENTER)
+            self.tree.heading("status", text="Status", anchor=CENTER)
+            self.tree.heading("last_updated", text="Last Updated", anchor=CENTER)
+            
+            self.tree.column("#0", width=300, minwidth=200)
+            self.tree.column("version", width=100, minwidth=80)
+            self.tree.column("status", width=100, minwidth=80)
+            self.tree.column("last_updated", width=120, minwidth=100)
+            
+            # Scrollbars
+            tree_scroll_y = ttk_bootstrap.Scrollbar(list_frame, orient=VERTICAL, command=self.tree.yview)
+            tree_scroll_x = ttk_bootstrap.Scrollbar(list_frame, orient=HORIZONTAL, command=self.tree.xview)
+            self.tree.configure(yscrollcommand=tree_scroll_y.set, xscrollcommand=tree_scroll_x.set)
+            
+            # Pack treeview and scrollbars
+            self.tree.pack(side=LEFT, fill=BOTH, expand=True)
+            tree_scroll_y.pack(side=RIGHT, fill=Y)
+            tree_scroll_x.pack(side=BOTTOM, fill=X)
+            
+            # Bind events
+            self.tree.bind("<<TreeviewSelect>>", self.on_selection_changed)
+            self.tree.bind("<Double-1>", self.on_double_click)
+            
+            # Configure tags for different mod states
+            self.tree.tag_configure("enabled", foreground="green")
+            self.tree.tag_configure("disabled", foreground="gray")
+            self.tree.tag_configure("outdated", foreground="orange")
+            self.tree.tag_configure("error", foreground="red")
+            self.tree.tag_configure("empty", foreground="gray", font=("TkDefaultFont", 9, "italic"))
+            
+            # Force layout update
+            self.parent.update_idletasks()
+            
+        except Exception as e:
+            print(f"Error setting up mod list UI: {e}")
+            import traceback
+            traceback.print_exc()
     
     
     def toggle_mod_enabled(self, mod_id, enabled):
@@ -177,27 +190,55 @@ class ModListFrame:
     
     def refresh_list(self):
         """Refresh the mod list display"""
-        # Clear existing items
-        for item in self.tree.get_children():
-            self.tree.delete(item)
-        
-        # Check if we have any mods
-        if not self.mod_data:
-            # Show empty state message
-            self.show_empty_state()
-            # Notify that there are no mods available (different from no selection)
-            self.selection_callback("NO_MODS_AVAILABLE")
-            return
-        
-        # Filter and sort mods
-        filtered_mods = self.get_filtered_mods()
-        
-        if not filtered_mods:
-            # Show no results message
-            self.show_no_results_state()
-            return
-        
+        try:
+            # Ensure tree widget exists and is properly initialized
+            if not hasattr(self, 'tree') or not self.tree.winfo_exists():
+                print("Warning: Tree widget not properly initialized, attempting to recreate...")
+                self.setup_ui()
+                return
+            
+            # Clear existing items
+            for item in self.tree.get_children():
+                self.tree.delete(item)
+            
+            # Check if we have any mods
+            if not self.mod_data:
+                # Show empty state message
+                self.show_empty_state()
+                # Notify that there are no mods available (different from no selection)
+                self.selection_callback("NO_MODS_AVAILABLE")
+                return
+            
+            # Filter and sort mods
+            filtered_mods = self.get_filtered_mods()
+            
+            if not filtered_mods:
+                # Show no results message
+                self.show_no_results_state()
+                return
+            
+            # Insert mods into tree
+            self._populate_tree(filtered_mods)
+            
+            # Force update to ensure rendering
+            if hasattr(self, 'parent') and self.parent.winfo_exists():
+                self.parent.update_idletasks()
+                
+        except Exception as e:
+            print(f"Error refreshing mod list: {e}")
+            import traceback
+            traceback.print_exc()
+            # Try to recover by showing empty state
+            try:
+                self.show_empty_state()
+            except:
+                pass
+
+    def _populate_tree(self, filtered_mods):
+        """Populate the tree with mod data"""
         # Insert mods into tree
+    def _populate_tree(self, filtered_mods):
+        """Populate the tree with mod data"""
         for mod in filtered_mods:
             status_text = mod["status"]
             
