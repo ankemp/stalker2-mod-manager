@@ -71,7 +71,7 @@ class MainWindow:
                 if api_user:
                     is_premium = self.config_manager.get_config('api_is_premium', 'False')
                     premium_text = " (Premium)" if is_premium else " (Free)"
-                    self.status_bar.set_connection_status(f"API: {api_user}{premium_text}")
+                    self.status_bar.set_connection_status(f"{api_user}{premium_text}")
                 else:
                     self.status_bar.set_connection_status("API key configured (not validated)")
             else:
@@ -210,6 +210,10 @@ class MainWindow:
         # Create mod details frame
         self.mod_details_frame = ModDetailsFrame(right_frame, self.on_mod_action, self.deployment_manager)
         
+        # Check if we need to set the "no mods available" state
+        if not self.mod_list_frame.mod_data:
+            self.mod_details_frame.set_no_mods_state()
+        
         # Create status bar
         self.status_bar = StatusBar(self.root)
         
@@ -300,17 +304,30 @@ class MainWindow:
     
     def on_mod_selected(self, mod_data):
         """Handle mod selection from the list"""
+        # Check for special case when no mods are available
+        if mod_data == "NO_MODS_AVAILABLE":
+            # Update button states - all disabled
+            self.enable_button.config(state=DISABLED)
+            self.disable_button.config(state=DISABLED)
+            
+            # Update mod details panel to show "no mods available" state (if it exists yet)
+            if hasattr(self, 'mod_details_frame'):
+                self.mod_details_frame.set_no_mods_state()
+            return
+        
         # Update button states
         if mod_data:
             self.enable_button.config(state=NORMAL if not mod_data.get('enabled') else DISABLED)
             self.disable_button.config(state=NORMAL if mod_data.get('enabled') else DISABLED)
             
             # Update mod details panel
-            self.mod_details_frame.display_mod(mod_data)
+            if hasattr(self, 'mod_details_frame'):
+                self.mod_details_frame.display_mod(mod_data)
         else:
             self.enable_button.config(state=DISABLED)
             self.disable_button.config(state=DISABLED)
-            self.mod_details_frame.clear_display()
+            if hasattr(self, 'mod_details_frame'):
+                self.mod_details_frame.clear_display()
     
     def on_mod_action(self, action, mod_data):
         """Handle actions from the mod details panel"""

@@ -185,6 +185,8 @@ class ModListFrame:
         if not self.mod_data:
             # Show empty state message
             self.show_empty_state()
+            # Notify that there are no mods available (different from no selection)
+            self.selection_callback("NO_MODS_AVAILABLE")
             return
         
         # Filter and sort mods
@@ -655,13 +657,35 @@ class ModDetailsFrame:
         for item in self.files_tree.get_children():
             self.files_tree.delete(item)
         
-            # Show helpful message
-            item = self.files_tree.insert("", "end", text="Select a mod to view deployed files", values=("info",))
-            self.nexus_frame.pack_forget()
-            self.toggle_button.config(text="Enable Mod", state=DISABLED)
-            self.update_button.config(state=DISABLED)
-            self.configure_files_button.config(state=DISABLED)
-            self.remove_mod_button.config(state=DISABLED)
+        # Show helpful message
+        item = self.files_tree.insert("", "end", text="Select a mod to view deployed files", values=("info",))
+        self.toggle_button.config(text="Enable Mod", state=DISABLED)
+        self.update_button.config(state=DISABLED)
+        self.configure_files_button.config(state=DISABLED)
+        self.remove_mod_button.config(state=DISABLED)
+    
+    def set_no_mods_state(self):
+        """Set the UI to a state indicating no mods are available (not just unselected)"""
+        self.name_var.set("No mods available")
+        self.author_var.set("")
+        self.version_var.set("1.0")
+        self.description_text.config(state=tk.NORMAL)
+        self.description_text.delete("1.0", tk.END)
+        self.description_text.insert("1.0", "No mods are currently being managed. Add a mod to get started.")
+        self.description_text.config(state=tk.DISABLED)
+        
+        self.nexus_link_var.set("")
+        self.nexus_frame.pack_forget()
+        
+        # Clear deployed files
+        for item in self.files_tree.get_children():
+            self.files_tree.delete(item)
+        
+        # Disable all action buttons
+        self.toggle_button.config(text="Enable Mod", state=DISABLED)
+        self.update_button.config(state=DISABLED)
+        self.configure_files_button.config(state=DISABLED)
+        self.remove_mod_button.config(state=DISABLED)
     
     def clear_display(self):
         """Clear the mod details display"""
