@@ -99,6 +99,10 @@ class MainWindow:
             self.config_manager.set_auto_check_updates(True)
             self.config_manager.set_update_interval(app_config.DEFAULT_UPDATE_INTERVAL_HOURS)
             
+            # Set default mod storage directory
+            self.config_manager.set_mods_directory(app_config.DEFAULT_MODS_DIR)
+            print(f"Set default mod storage directory: {app_config.DEFAULT_MODS_DIR}")
+            
             print("Basic configuration initialized successfully")
             
         except Exception as e:
