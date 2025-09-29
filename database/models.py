@@ -386,6 +386,14 @@ class ConfigManager:
         """Set update check interval in hours"""
         self.set_config("update_interval_hours", str(hours))
     
+    def get_backup_before_deploy(self) -> bool:
+        """Get backup before deploy setting"""
+        return self.get_config("backup_before_deploy", "true").lower() == "true"
+    
+    def set_backup_before_deploy(self, enabled: bool) -> None:
+        """Set backup before deploy setting"""
+        self.set_config("backup_before_deploy", "true" if enabled else "false")
+    
     def get_confirm_actions(self) -> bool:
         """Get confirmation dialog setting"""
         return self.get_config("confirm_actions", "true").lower() == "true"
@@ -409,6 +417,14 @@ class ConfigManager:
     def set_api_is_premium(self, is_premium: bool) -> None:
         """Set whether the API user has premium status"""
         self.set_config("api_is_premium", "true" if is_premium else "false")
+    
+    def get_test_archive_integrity(self) -> bool:
+        """Get archive integrity testing setting"""
+        return self.get_config("test_archive_integrity", "false").lower() == "true"
+    
+    def set_test_archive_integrity(self, enabled: bool) -> None:
+        """Set archive integrity testing setting"""
+        self.set_config("test_archive_integrity", "true" if enabled else "false")
 
 
 class ModManager:

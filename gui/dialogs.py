@@ -454,11 +454,11 @@ class SettingsDialog(BaseDialog):
             self.confirm_actions_var.set(self.config_manager.get_confirm_actions())
             self.show_notifications_var.set(self.config_manager.get_show_notifications())
             
-            # Load backup setting, default to True if not set
-            try:
-                self.backup_before_deploy_var.set(self.config_manager.get_config('backup_before_deploy', default=True))
-            except:
-                self.backup_before_deploy_var.set(True)
+            # Load backup setting
+            self.backup_before_deploy_var.set(self.config_manager.get_backup_before_deploy())
+            
+            # Load archive testing setting
+            self.test_archive_integrity_var.set(self.config_manager.get_test_archive_integrity())
             
             api_key = self.config_manager.get_api_key()
             if api_key:
@@ -590,6 +590,24 @@ class SettingsDialog(BaseDialog):
             text="Show system notifications for updates",
             variable=self.show_notifications_var
         ).pack(anchor=W, padx=10, pady=5)
+        
+        # Archive testing settings
+        archive_frame = ttk_bootstrap.LabelFrame(parent, text="Archive Validation")
+        archive_frame.pack(fill=X, padx=10, pady=10)
+        
+        self.test_archive_integrity_var = tk.BooleanVar(value=False)
+        ttk_bootstrap.Checkbutton(
+            archive_frame,
+            text="Test archive integrity when viewing mod details",
+            variable=self.test_archive_integrity_var
+        ).pack(anchor=W, padx=10, pady=5)
+        
+        ttk_bootstrap.Label(
+            archive_frame,
+            text="When enabled, archives are tested for corruption in the background.\nThis provides better feedback but may slow down mod browsing for large files.",
+            font=("TkDefaultFont", 8),
+            foreground="gray"
+        ).pack(anchor=W, padx=10, pady=(0, 10))
     
     def setup_api_tab(self, parent):
         """Setup Nexus API settings tab"""
@@ -775,6 +793,9 @@ class SettingsDialog(BaseDialog):
                     self.config_manager.set_config('api_user_name', username)
                     self.config_manager.set_config('api_user_id', user_id)
                     self.config_manager.set_api_is_premium(is_premium)
+                    # Save validation timestamp
+                    import time
+                    self.config_manager.set_config('api_last_validated', str(int(time.time())))
                 except Exception as e:
                     logger.error(f"Failed to save API user info: {e}")
             
@@ -1074,6 +1095,7 @@ Note: Rate limits are shared across all applications using your API key."""
             "confirm_actions": self.confirm_actions_var.get(),
             "show_notifications": self.show_notifications_var.get(),
             "backup_before_deploy": self.backup_before_deploy_var.get(),
+            "test_archive_integrity": self.test_archive_integrity_var.get(),
             "api_key": self.api_key_var.get().strip(),
             "game_path": self.game_path_var.get().strip(),
             "mods_path": self.mods_path_var.get().strip()

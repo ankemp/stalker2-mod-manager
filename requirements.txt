@@ -11,6 +11,10 @@ idna>=3.0
 # Image Processing (for mod thumbnails and icons)
 pillow>=10.0.0
 
+# Archive handling
+rarfile>=4.0
+py7zr>=0.20.0
+
 # Note: The following are part of Python's standard library and don't need to be installed:
 # - tkinter, ttk (GUI framework base)
 # - sqlite3 (database)

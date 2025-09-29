@@ -423,8 +423,6 @@ python scripts/validate_api_compliance.py
 - Add crash recovery and error reporting
 
 **User Experience Enhancements:**
-- Implement mod status color coding (green=enabled, red=disabled)
-- Implement comprehensive error messaging and user feedback
 - Add tooltips and help system throughout application
 
 **Polish & Production:**

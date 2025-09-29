@@ -16,6 +16,157 @@ from pathlib import Path
 from datetime import datetime
 import stat
 import config
+import py7zr
+import rarfile
+
+class ArchiveHandler:
+    """Generic archive handler supporting ZIP, RAR, and 7Z formats"""
+    
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+    
+    def extract_files(self, archive_path: Path, target_dir: Path, selected_files: Optional[List[str]] = None):
+        """Extract files from an archive to target directory"""
+        archive_path = Path(archive_path)
+        extension = archive_path.suffix.lower()
+        
+        if extension == '.zip':
+            return self._extract_zip(archive_path, target_dir, selected_files)
+        elif extension == '.rar':
+            return self._extract_rar(archive_path, target_dir, selected_files)
+        elif extension == '.7z':
+            return self._extract_7z(archive_path, target_dir, selected_files)
+        else:
+            raise ValueError(f"Unsupported archive format: {extension}")
+    
+    def list_files(self, archive_path: Path) -> List[Dict[str, Any]]:
+        """List files in an archive"""
+        archive_path = Path(archive_path)
+        extension = archive_path.suffix.lower()
+        
+        if extension == '.zip':
+            return self._list_zip_files(archive_path)
+        elif extension == '.rar':
+            return self._list_rar_files(archive_path)
+        elif extension == '.7z':
+            return self._list_7z_files(archive_path)
+        else:
+            raise ValueError(f"Unsupported archive format: {extension}")
+    
+    def test_archive(self, archive_path: Path) -> bool:
+        """Test if archive is valid and not corrupted"""
+        archive_path = Path(archive_path)
+        extension = archive_path.suffix.lower()
+        
+        try:
+            if extension == '.zip':
+                with zipfile.ZipFile(archive_path, 'r') as zf:
+                    zf.testzip()
+                    return True
+            elif extension == '.rar':
+                with rarfile.RarFile(archive_path, 'r') as rf:
+                    rf.testrar()
+                    return True
+            elif extension == '.7z':
+                with py7zr.SevenZipFile(archive_path, 'r') as szf:
+                    szf.testzip()
+                    return True
+            else:
+                return False
+        except Exception as e:
+            self.logger.error(f"Archive test failed for {archive_path}: {e}")
+            return False
+        
+    @staticmethod
+    def get_archive_type_display(file_path: Path) -> str:
+        """Get a user-friendly display name for archive type based on file extension"""
+        if not file_path:
+            return "Unknown"
+            
+        # Get file extension (case-insensitive)
+        extension = Path(file_path).suffix.lower()
+        
+        # Map extensions to display names
+        extension_map = {
+            '.zip': 'ZIP',
+            '.rar': 'RAR', 
+            '.7z': '7-Zip',
+            '.tar': 'TAR',
+            '.gz': 'GZIP',
+            '.bz2': 'BZIP2',
+            '.xz': 'XZ'
+        }
+        
+        return extension_map.get(extension, extension.upper().lstrip('.') if extension else 'Unknown')
+
+    
+    def _extract_zip(self, archive_path: Path, target_dir: Path, selected_files: Optional[List[str]] = None):
+        """Extract ZIP archive"""
+        with zipfile.ZipFile(archive_path, 'r') as zf:
+            if selected_files:
+                for file_path in selected_files:
+                    zf.extract(file_path, target_dir)
+            else:
+                zf.extractall(target_dir)
+    
+    def _extract_rar(self, archive_path: Path, target_dir: Path, selected_files: Optional[List[str]] = None):
+        """Extract RAR archive"""
+        with rarfile.RarFile(archive_path, 'r') as rf:
+            if selected_files:
+                for file_path in selected_files:
+                    rf.extract(file_path, target_dir)
+            else:
+                rf.extractall(target_dir)
+    
+    def _extract_7z(self, archive_path: Path, target_dir: Path, selected_files: Optional[List[str]] = None):
+        """Extract 7Z archive"""
+        with py7zr.SevenZipFile(archive_path, 'r') as szf:
+            if selected_files:
+                szf.extract(target_dir, selected_files)
+            else:
+                szf.extractall(target_dir)
+    
+    def _list_zip_files(self, archive_path: Path) -> List[Dict[str, Any]]:
+        """List files in ZIP archive"""
+        files = []
+        with zipfile.ZipFile(archive_path, 'r') as zf:
+            for info in zf.infolist():
+                if not info.is_dir():
+                    files.append({
+                        'path': info.filename,
+                        'size': info.file_size,
+                        'compressed_size': info.compress_size,
+                        'date_time': info.date_time
+                    })
+        return files
+    
+    def _list_rar_files(self, archive_path: Path) -> List[Dict[str, Any]]:
+        """List files in RAR archive"""
+        files = []
+        with rarfile.RarFile(archive_path, 'r') as rf:
+            for info in rf.infolist():
+                if not info.is_dir():
+                    files.append({
+                        'path': info.filename,
+                        'size': info.file_size,
+                        'compressed_size': info.compress_size,
+                        'date_time': info.date_time
+                    })
+        return files
+    
+    def _list_7z_files(self, archive_path: Path) -> List[Dict[str, Any]]:
+        """List files in 7Z archive"""
+        files = []
+        with py7zr.SevenZipFile(archive_path, 'r') as szf:
+            for info in szf.list():
+                if not info.is_directory:
+                    files.append({
+                        'path': info.filename,
+                        'size': info.uncompressed,
+                        'compressed_size': info.compressed,
+                        'date_time': info.creationtime
+                    })
+        return files
 
 
 class FileDeploymentManager:
@@ -31,7 +182,7 @@ class FileDeploymentManager:
         # Ensure directories exist
         self.backup_path.mkdir(parents=True, exist_ok=True)
     
-    def deploy_mod_files(self, mod_id: int, archive_path: str, selected_files: List[str], 
+    def deploy_mod_files(self, mod_id: int, archive_path: Path, selected_files: List[str], 
                         deployment_manager) -> Dict[str, Any]:
         """Deploy selected files from a mod archive to the game directory"""
         try:
@@ -218,7 +369,7 @@ class ArchiveManager:
         self.archives_directory.mkdir(parents=True, exist_ok=True)
         self.logger = logging.getLogger(__name__)
     
-    def extract_archive_contents(self, archive_path: str) -> List[Dict[str, Any]]:
+    def extract_archive_contents(self, archive_path: Path) -> List[Dict[str, Any]]:
         """Extract and list contents of a mod archive"""
         archive_path = Path(archive_path)
         
@@ -231,28 +382,29 @@ class ArchiveManager:
         contents = []
         
         try:
-            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                for info in zip_ref.infolist():
-                    # Skip directories and focus on files
-                    if not info.is_dir():
-                        # Normalize path separators for Windows
-                        normalized_path = info.filename.replace('/', os.sep)
-                        
-                        # Get file info
-                        file_info = {
-                            'path': normalized_path,
-                            'filename': os.path.basename(info.filename),
-                            'size': info.file_size,
-                            'compressed_size': info.compress_size,
-                            'date_time': datetime(*info.date_time),
-                            'crc': info.CRC,
-                            'is_directory': info.is_dir(),
-                            'directory': os.path.dirname(normalized_path),
-                            'extension': Path(info.filename).suffix.lower(),
-                            'relative_path': info.filename
-                        }
-                        
-                        contents.append(file_info)
+            # Use the new archive handler
+            archive_handler = ArchiveHandler()
+            files = archive_handler.list_files(archive_path)
+            
+            for file_info in files:
+                # Normalize path separators for Windows
+                normalized_path = file_info['path'].replace('/', os.sep)
+                
+                # Create consistent file info structure
+                processed_info = {
+                    'path': normalized_path,
+                    'filename': os.path.basename(file_info['path']),
+                    'size': file_info['size'],
+                    'compressed_size': file_info.get('compressed_size', 0),
+                    'date_time': file_info.get('date_time', datetime.now()),
+                    'crc': file_info.get('crc', 0),
+                    'is_directory': False,  # We only process files
+                    'directory': os.path.dirname(normalized_path),
+                    'extension': Path(file_info['path']).suffix.lower(),
+                    'relative_path': file_info['path']
+                }
+                
+                contents.append(processed_info)
             
             # Sort by path for consistent ordering
             contents.sort(key=lambda x: x['path'])
@@ -260,8 +412,6 @@ class ArchiveManager:
             
             return contents
             
-        except zipfile.BadZipFile:
-            raise ValueError(f"Corrupted or invalid zip file: {archive_path}")
         except Exception as e:
             self.logger.error(f"Error extracting archive {archive_path}: {e}")
             raise
@@ -282,7 +432,7 @@ class ArchiveManager:
         
         return unique_name
     
-    def copy_archive(self, source_path: str, mod_name: str) -> str:
+    def copy_archive(self, source_path: Path, mod_name: str) -> str:
         """Copy an archive to the managed directory"""
         source_path = Path(source_path)
         
@@ -361,7 +511,7 @@ class ArchiveManager:
             'is_valid': self.is_valid_archive(str(archive_path))
         }
     
-    def is_valid_archive(self, file_path: str) -> bool:
+    def is_valid_archive(self, file_path: Path) -> bool:
         """Check if a file is a valid mod archive"""
         file_path = Path(file_path)
         
@@ -369,18 +519,16 @@ class ArchiveManager:
         if file_path.suffix.lower() not in config.SUPPORTED_ARCHIVE_EXTENSIONS:
             return False
         
-        # For now, only handle ZIP files (most common for mods)
-        if file_path.suffix.lower() == '.zip':
-            try:
-                with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                    # Try to read the file list - this will fail if corrupted
-                    zip_ref.namelist()
-                    return True
-            except:
-                return False
+        # Check if file exists and has content
+        if not file_path.exists() or file_path.stat().st_size == 0:
+            return False
         
-        # For other formats, just check if file exists and has content
-        return file_path.exists() and file_path.stat().st_size > 0
+        # Use the archive handler to test the archive
+        try:
+            archive_handler = ArchiveHandler()
+            return archive_handler.test_archive(file_path)
+        except Exception:
+            return False
     
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize a filename for safe file system usage"""
@@ -451,7 +599,7 @@ class GameDirectoryManager:
         self.backup_directory.mkdir(exist_ok=True)
         self.logger = logging.getLogger(__name__)
     
-    def deploy_files(self, mod_id: int, archive_path: str, 
+    def deploy_files(self, mod_id: int, archive_path: Path, 
                     selected_files: List[str], backup_before_deploy: bool = True) -> List[str]:
         """Deploy selected files from a mod archive to the game mods directory"""
         archive_path = Path(archive_path)
@@ -475,20 +623,32 @@ class GameDirectoryManager:
         deployed_files = []
         
         try:
-            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
+            # Use temporary directory to extract files
+            archive_handler = ArchiveHandler()
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_path = Path(temp_dir)
+                
+                # Extract selected files from archive
+                archive_handler.extract_files(archive_path, temp_path, selected_files)
+                
+                # Copy extracted files to mods directory
                 for file_path in selected_files:
                     try:
-                        # Normalize the path
+                        # Normalize the path for Windows
                         normalized_path = file_path.replace('/', os.sep)
-                        target_path = self.mods_directory / normalized_path
+                        source_file = temp_path / normalized_path
+                        target_path = self.mods_directory / Path(normalized_path).name  # Just the filename, no subdirs
                         
-                        # Create directory structure if needed
-                        target_path.parent.mkdir(parents=True, exist_ok=True)
+                        # Skip if source doesn't exist (might be a directory)
+                        if not source_file.exists():
+                            continue
                         
-                        # Extract and copy the file directly (no backup needed since we wiped the directory)
-                        with zip_ref.open(file_path) as source:
-                            with open(target_path, 'wb') as target:
-                                shutil.copyfileobj(source, target)
+                        # Skip directories
+                        if source_file.is_dir():
+                            continue
+                        
+                        # Copy the file directly to mods directory
+                        shutil.copy2(source_file, target_path)
                         
                         # Record the deployment
                         deployment_info = {
@@ -917,7 +1077,7 @@ class ModFileValidator:
         self.logger = logging.getLogger(__name__)
     
     @staticmethod
-    def is_valid_archive(file_path: str) -> bool:
+    def is_valid_archive(file_path: Path) -> bool:
         """Check if a file is a valid mod archive"""
         file_path = Path(file_path)
         
@@ -932,21 +1092,14 @@ class ModFileValidator:
         if file_path.stat().st_size == 0:
             return False
         
-        # For ZIP files, try to open and validate
-        if file_path.suffix.lower() == '.zip':
-            try:
-                with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                    # Test the zip file integrity
-                    zip_ref.testzip()
-                    # Ensure it has some files
-                    return len(zip_ref.namelist()) > 0
-            except:
-                return False
-        
-        # For other formats, basic checks passed
-        return True
+        # Use the archive handler to test the archive
+        try:
+            archive_handler = ArchiveHandler()
+            return archive_handler.test_archive(file_path)
+        except:
+            return False
     
-    def scan_for_malicious_content(self, archive_path: str) -> List[str]:
+    def scan_for_malicious_content(self, archive_path: Path) -> List[str]:
         """Scan archive for potentially malicious files"""
         warnings = []
         archive_path = Path(archive_path)
@@ -955,10 +1108,12 @@ class ModFileValidator:
             return ["Archive file not found"]
         
         try:
-            with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                for file_info in zip_ref.infolist():
-                    filename = file_info.filename
-                    warnings.extend(self._check_file_security(filename, file_info))
+            # Use archive handler to list files
+            archive_handler = ArchiveHandler()
+            files = archive_handler.list_files(archive_path)
+            for file_info in files:
+                filename = file_info['path']
+                warnings.extend(self._check_file_security(filename, file_info))
                     
         except Exception as e:
             warnings.append(f"Error scanning archive: {e}")
@@ -1087,7 +1242,7 @@ class TempFileManager:
             self.logger.error(f"Error creating temporary file: {e}")
             raise
     
-    def extract_to_temp_dir(self, archive_path: str, selected_files: Optional[List[str]] = None) -> str:
+    def extract_to_temp_dir(self, archive_path: Path, selected_files: Optional[List[str]] = None) -> str:
         """Extract archive contents to a temporary directory"""
         temp_dir = self.create_temp_dir()
         archive_path = Path(archive_path)
@@ -1196,7 +1351,7 @@ class ModFileManager:
         self.temp_manager = TempFileManager()
         self.logger = logging.getLogger(__name__)
     
-    def install_mod_from_archive(self, archive_path: str, mod_name: str, 
+    def install_mod_from_archive(self, archive_path: Path, mod_name: str, 
                                 selected_files: List[str], mod_id: int,
                                 existing_deployments: Optional[Dict[int, List[str]]] = None,
                                 conflict_resolution: str = "ask_user") -> Dict[str, Any]:
@@ -1414,7 +1569,7 @@ class FileManager:
         self.temp_manager = TempFileManager()
         self.logger = logging.getLogger(__name__)
     
-    def validate_archive(self, archive_path: str) -> bool:
+    def validate_archive(self, archive_path: Path) -> bool:
         """Validate that an archive is valid and readable"""
         try:
             # Use the validator directly
@@ -1424,7 +1579,7 @@ class FileManager:
             self.logger.error(f"Error validating archive {archive_path}: {e}")
             return False
     
-    def scan_archive_security(self, archive_path: str) -> Dict[str, Any]:
+    def scan_archive_security(self, archive_path: Path) -> Dict[str, Any]:
         """Scan archive for security issues"""
         try:
             # Use the validator directly
@@ -1441,7 +1596,7 @@ class FileManager:
                 'warnings': [f"Error during security scan: {e}"]
             }
     
-    def get_archive_contents(self, archive_path: str) -> List[Dict[str, Any]]:
+    def get_archive_contents(self, archive_path: Path) -> List[Dict[str, Any]]:
         """Get the contents of an archive file"""
         try:
             # Use the archive manager directly
@@ -1451,8 +1606,8 @@ class FileManager:
             self.logger.error(f"Error getting archive contents {archive_path}: {e}")
             return []
     
-    def deploy_mod_files(self, archive_path: str, selected_files: List[str], 
-                        target_directory: str = None) -> Dict[str, Any]:
+    def deploy_mod_files(self, archive_path: Path, selected_files: List[str], 
+                        target_directory: Optional[str] = None) -> Dict[str, Any]:
         """Deploy selected files from an archive to the target directory"""
         if not target_directory and self.game_path:
             target_directory = str(self.game_path)

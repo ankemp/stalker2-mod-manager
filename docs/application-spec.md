@@ -98,24 +98,116 @@ When modifying keyboard shortcuts:
 * **Choice:** **Tkinter with ttkbootstrap**  
 * **Rationale:** A balance of control and modern aesthetics.
 
-### **3.3. Zip File Manipulation**
+### **3.3. Logging Standards**
 
-* **Choice:** **zipfile (Python Standard Library)**  
-* **Rationale:** Built-in and robust.
+> **⚠️ DEVELOPMENT REQUIREMENT:** The application MUST use the centralized logging system. Direct `print()` statements are **PROHIBITED** in production code.
 
-### **3.4. Nexus Mods API Integration**
+#### **3.3.1. Logging Implementation**
+
+* **Framework:** Python's built-in `logging` module with centralized configuration
+* **Configuration:** Managed via `utils/logging_config.py`
+* **File Location:** `%LOCALAPPDATA%\Stalker 2 Mod Manager\logs\stalker2_mod_manager.log`
+* **Console Output:** Configurable based on log level
+* **Rotation:** Automatic log rotation to prevent excessive disk usage
+
+#### **3.3.2. Log Levels & Usage**
+
+* **DEBUG:** Detailed information for diagnosing problems (function entry/exit, variable values)
+* **INFO:** General information about application flow (startup, mod operations, user actions)
+* **WARNING:** Something unexpected happened but the application can continue
+* **ERROR:** A serious problem occurred; some functionality may not work
+* **CRITICAL:** A very serious error occurred; the application may not be able to continue
+
+#### **3.3.3. Logging Configuration**
+
+**Command Line Control:**
+```bash
+# Run with debug logging
+run.bat --log-level DEBUG
+
+# Run with minimal logging
+run.bat --log-level ERROR
+```
+
+**Environment Variable Control:**
+```bash
+# Windows
+set LOG_LEVEL=DEBUG && python main.py
+
+# Linux/macOS
+LOG_LEVEL=WARNING python main.py
+```
+
+#### **3.3.4. Implementation Guidelines**
+
+1. **Import logger in each module:**
+   ```python
+   from utils.logging_config import get_logger
+   logger = get_logger(__name__)
+   ```
+
+2. **Use appropriate log levels:**
+   ```python
+   logger.debug(f"Processing mod {mod_id} with {len(files)} files")
+   logger.info(f"Successfully deployed mod: {mod_name}")
+   logger.warning(f"Archive file not found: {filename}")
+   logger.error(f"Failed to deploy mod {mod_id}: {e}")  
+   logger.critical(f"Database connection failed: {e}")
+   ```
+
+3. **Never use print() in production code** - use logger instead
+4. **Include relevant context** in log messages (mod IDs, file paths, error details)
+5. **Use f-strings** for efficient string formatting in log messages
+
+#### **3.3.5. Log Message Standards**
+
+* **Be Descriptive:** Include what action was being performed
+* **Include Context:** Mod names/IDs, file paths, user actions
+* **Use Consistent Format:** Action-oriented messages (e.g., "Deploying mod X...", "Mod X deployed successfully")
+* **Error Handling:** Always log exceptions with stack traces for DEBUG level
+
+### **3.4. Archive File Support**
+
+* **Primary Format:** **ZIP files** via Python's built-in `zipfile` module  
+* **Extended Support:** **RAR** (via `rarfile` library) and **7Z** (via `py7zr` library)
+* **Rationale:** Built-in ZIP support is robust, with extended format support for broader mod compatibility
+
+#### **3.4.1. Supported Archive Formats**
+
+* **.zip** - Primary format with full extraction and validation support
+* **.rar** - Secondary support with extraction capability  
+* **.7z** - Secondary support with extraction capability
+
+#### **3.4.2. Archive Handling Architecture**
+
+The application uses a centralized `ArchiveHandler` class in `utils/file_manager.py` that provides:
+
+* **Universal Interface:** Single API for all archive formats
+* **Format Detection:** Automatic format detection based on file extension  
+* **Validation:** Archive integrity testing for all supported formats
+* **Security:** Malicious content scanning and path validation
+* **Error Handling:** Consistent error handling across all formats
+
+#### **3.4.3. Implementation Requirements**
+
+1. **Always use the centralized ArchiveHandler** - never directly use zipfile, rarfile, or py7zr
+2. **Test archive validity** before attempting extraction operations
+3. **Handle missing libraries gracefully** - if rarfile or py7zr are not available, inform user appropriately  
+4. **Validate all extracted paths** to prevent directory traversal attacks
+
+### **3.5. Nexus Mods API Integration**
 
 * **API Communication Library:** **requests**  
 * **Authentication Method:** **Nexus Mods Personal API Key**
 
-#### **3.4.1. Required API Endpoints**
+#### **3.5.1. Required API Endpoints**
 
 * GET /v1/users/validate.json  
 * GET /v1/games/{game\_domain\_name}/mods/{id}.json  
 * GET /v1/games/{game\_domain\_name}/mods/{mod\_id}/files.json  
 * GET /v1/games/{game\_domain\_name}/mods/{mod\_id}/files/{id}/download\_link.json
 
-#### **3.4.2. URL Parsing & Validation**
+#### **3.5.2. URL Parsing & Validation**
 
 * **Expected Format:** https://www.nexusmods.com/{game\_domain\_name}/mods/{mod\_id}.  
 * **Validation Logic:** The game\_domain\_name must be stalker2heartofchornobyl.

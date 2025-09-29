@@ -11,6 +11,7 @@ from gui.dialogs import AddModDialog, SettingsDialog, DeploymentSelectionDialog,
 from gui.components import ModListFrame, ModDetailsFrame, StatusBar
 from utils.logging_config import get_logger
 import os
+import time
 
 # Initialize logger for this module
 logger = get_logger(__name__)
@@ -82,12 +83,188 @@ class MainWindow:
                     self.status_bar.set_connection_status(f"{api_user}{premium_text}")
                 else:
                     self.status_bar.set_connection_status("API key configured (not validated)")
+                
+                # Validate API key on startup
+                self._validate_api_key_on_startup()
             else:
                 self.status_bar.set_connection_status("No API key configured")
                 
         except Exception as e:
             logger.error(f"Error initializing API components: {e}")
             self.status_bar.set_status(f"Error initializing API components: {e}")
+    
+    def _validate_api_key_on_startup(self):
+        """Validate the API key in the background on startup"""
+        if not self.nexus_client:
+            return
+        
+        # Check if we recently validated the API key (within the last 24 hours)
+        last_validated = self.config_manager.get_config('api_last_validated')
+        if last_validated:
+            try:
+                last_validated_time = int(last_validated)
+                current_time = int(time.time())
+                hours_since_last_validation = (current_time - last_validated_time) / 3600
+                
+                # If validated within the last 24 hours, skip validation
+                if hours_since_last_validation < 24:
+                    logger.info(f"API key was validated {hours_since_last_validation:.1f} hours ago, skipping startup validation")
+                    return
+            except (ValueError, TypeError):
+                logger.warning("Invalid api_last_validated timestamp, proceeding with validation")
+        
+        def validate_thread():
+            try:
+                logger.info("Validating API key on startup...")
+                user_info = self.nexus_client.validate_api_key()
+                
+                # Update UI on main thread
+                self.root.after(0, self._update_startup_validation_success, user_info)
+                
+            except Exception as e:
+                # Update UI on main thread
+                logger.warning(f"API key validation failed on startup: {e}")
+                self.root.after(0, self._update_startup_validation_error, str(e))
+        
+        # Create background task for validation
+        from utils.thread_manager import get_thread_manager, TaskType
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.API_VALIDATION,
+            description="Validating Nexus Mods API key on startup",
+            target=validate_thread,
+            can_cancel=False  # Don't allow cancelling startup validation
+        )
+        
+        logger.info(f"Started startup API validation task: {task_id}")
+    
+    def _update_startup_validation_success(self, user_info):
+        """Update UI after successful startup API validation"""
+        try:
+            username = user_info.get('name', 'Unknown User')
+            user_id = user_info.get('user_id', 'N/A')
+            is_premium = user_info.get('is_premium', False)
+            premium_text = " (Premium)" if is_premium else " (Free)"
+            
+            # Update connection status
+            self.status_bar.set_connection_status(f"{username}{premium_text}")
+            
+            # Save/update user info in config
+            try:
+                self.config_manager.set_config('api_user_name', username)
+                self.config_manager.set_config('api_user_id', user_id)
+                self.config_manager.set_api_is_premium(is_premium)
+                self.config_manager.set_config('api_last_validated', str(int(time.time())))
+            except Exception as e:
+                logger.error(f"Failed to save API user info: {e}")
+            
+            logger.info(f"API key validated successfully on startup for user: {username} (ID: {user_id})")
+            
+        except Exception as e:
+            logger.error(f"Error processing startup validation success: {e}")
+            self.status_bar.set_connection_status("API key valid")
+    
+    def _update_startup_validation_error(self, error_message):
+        """Update UI after failed startup API validation"""
+        # Update connection status to indicate validation failure
+        self.status_bar.set_connection_status("API key invalid or expired")
+        
+        # Clear any stored user info since validation failed
+        try:
+            self.config_manager.delete_config('api_user_name')
+            self.config_manager.delete_config('api_user_id')
+            self.config_manager.set_api_is_premium(False)
+            self.config_manager.delete_config('api_last_validated')
+        except Exception as e:
+            logger.error(f"Failed to clear invalid API user info: {e}")
+        
+        # Set nexus_client to None since the API key is invalid
+        self.nexus_client = None
+        
+        logger.error(f"API key validation failed on startup: {error_message}")
+    
+    def validate_api_key_manually(self):
+        """Manually validate the API key (useful for testing or re-validation)"""
+        api_key = self.config_manager.get_api_key()
+        if not api_key:
+            self.status_bar.set_status("No API key configured")
+            return
+        
+        if not self.nexus_client:
+            try:
+                from api.nexus_api import NexusModsClient
+                self.nexus_client = NexusModsClient(api_key)
+            except Exception as e:
+                logger.error(f"Failed to create API client: {e}")
+                self.status_bar.set_status("Failed to create API client")
+                return
+        
+        self.status_bar.set_status("Validating API key...")
+        
+        def validate_thread():
+            try:
+                user_info = self.nexus_client.validate_api_key()
+                self.root.after(0, self._update_manual_validation_success, user_info)
+            except Exception as e:
+                self.root.after(0, self._update_manual_validation_error, str(e))
+        
+        # Create background task for validation
+        from utils.thread_manager import get_thread_manager, TaskType
+        thread_manager = get_thread_manager()
+        task_id = thread_manager.create_task(
+            task_type=TaskType.API_VALIDATION,
+            description="Manually validating Nexus Mods API key",
+            target=validate_thread,
+            can_cancel=True
+        )
+        
+        logger.info(f"Started manual API validation task: {task_id}")
+    
+    def _update_manual_validation_success(self, user_info):
+        """Update UI after successful manual API validation"""
+        try:
+            username = user_info.get('name', 'Unknown User')
+            user_id = user_info.get('user_id', 'N/A')
+            is_premium = user_info.get('is_premium', False)
+            premium_text = " (Premium)" if is_premium else " (Free)"
+            
+            # Update connection status
+            self.status_bar.set_connection_status(f"{username}{premium_text}")
+            self.status_bar.set_status(f"API key validated successfully for {username}")
+            
+            # Save/update user info in config
+            try:
+                self.config_manager.set_config('api_user_name', username)
+                self.config_manager.set_config('api_user_id', user_id)
+                self.config_manager.set_api_is_premium(is_premium)
+                self.config_manager.set_config('api_last_validated', str(int(time.time())))
+            except Exception as e:
+                logger.error(f"Failed to save API user info: {e}")
+            
+            logger.info(f"Manual API key validation successful for user: {username} (ID: {user_id})")
+            
+        except Exception as e:
+            logger.error(f"Error processing manual validation success: {e}")
+            self.status_bar.set_status("API key validation completed")
+    
+    def _update_manual_validation_error(self, error_message):
+        """Update UI after failed manual API validation"""
+        self.status_bar.set_connection_status("API key invalid or expired")
+        self.status_bar.set_status(f"API key validation failed: {error_message}")
+        
+        # Clear any stored user info since validation failed
+        try:
+            self.config_manager.delete_config('api_user_name')
+            self.config_manager.delete_config('api_user_id')
+            self.config_manager.set_api_is_premium(False)
+            self.config_manager.delete_config('api_last_validated')
+        except Exception as e:
+            logger.error(f"Failed to clear invalid API user info: {e}")
+        
+        # Set nexus_client to None since the API key is invalid
+        self.nexus_client = None
+        
+        logger.error(f"Manual API key validation failed: {error_message}")
     
     def check_updates_on_startup(self):
         """Check for updates on startup if the user has enabled this option"""
@@ -274,7 +451,7 @@ class MainWindow:
         self.mod_list_frame = ModListFrame(left_frame, self.on_mod_selected, self.mod_manager)
         
         # Create mod details frame
-        self.mod_details_frame = ModDetailsFrame(right_frame, self.on_mod_action, self.deployment_manager)
+        self.mod_details_frame = ModDetailsFrame(right_frame, self.on_mod_action, self.deployment_manager, self.config_manager)
         
         # Check if we need to set the "no mods available" state
         if not self.mod_list_frame.mod_data:
@@ -846,7 +1023,8 @@ class MainWindow:
                 self.config_manager.set_update_interval(result["update_interval"])
                 self.config_manager.set_confirm_actions(result["confirm_actions"])
                 self.config_manager.set_show_notifications(result["show_notifications"])
-                self.config_manager.set_config("backup_before_deploy", result["backup_before_deploy"])
+                self.config_manager.set_backup_before_deploy(result["backup_before_deploy"])
+                self.config_manager.set_test_archive_integrity(result["test_archive_integrity"])
                 
                 if result["api_key"]:
                     self.config_manager.set_api_key(result["api_key"])
@@ -861,9 +1039,27 @@ class MainWindow:
                 
                 # Update connection status if API key was set
                 if result["api_key"]:
-                    self.status_bar.set_connection_status("API key configured")
-                    # Reinitialize API components with new settings
-                    self.init_api_components()
+                    # Only update status if API key actually changed
+                    current_api_key = self.config_manager.get_api_key()
+                    if result["api_key"] != current_api_key:
+                        self.status_bar.set_connection_status("API key updated (validating...)")
+                        # Reinitialize API components with new settings (this will validate the key)
+                        self.init_api_components()
+                    else:
+                        # API key didn't change, just reinitialize components
+                        self.init_api_components()
+                elif self.config_manager.get_api_key():
+                    # API key was cleared
+                    self.nexus_client = None
+                    self.status_bar.set_connection_status("No API key configured")
+                    # Clear stored user info
+                    try:
+                        self.config_manager.delete_config('api_user_name')
+                        self.config_manager.delete_config('api_user_id')
+                        self.config_manager.set_api_is_premium(False)
+                        self.config_manager.delete_config('api_last_validated')
+                    except Exception as e:
+                        logger.error(f"Failed to clear API user info: {e}")
                 
             except Exception as e:
                 logger.error(f"Error saving settings: {e}")
@@ -925,7 +1121,7 @@ class MainWindow:
                         skipped_count += 1
             
             # Update UI
-            self.mod_list_frame.refresh_mod_list()
+            self.mod_list_frame.refresh_list()
             
             # Show status message
             if enabled_count > 0:
@@ -972,7 +1168,7 @@ class MainWindow:
                         disabled_count += 1
             
             # Update UI
-            self.mod_list_frame.refresh_mod_list()
+            self.mod_list_frame.refresh_list()
             
             # Show status message
             if disabled_count > 0:
@@ -1565,16 +1761,12 @@ class MainWindow:
         
         def deploy_thread():
             try:
-                import config
+                import config as app_config
                 deployed_count = 0
                 errors = []
                 
                 # Get backup setting
-                backup_before_deploy = True
-                try:
-                    backup_before_deploy = self.config_manager.get_config('backup_before_deploy', default=True)
-                except:
-                    backup_before_deploy = True
+                backup_before_deploy = self.config_manager.get_backup_before_deploy()
                 
                 # Create game directory manager directly
                 from utils.file_manager import GameDirectoryManager
@@ -1608,7 +1800,7 @@ class MainWindow:
                         
                         # Build full archive path
                         archive_filename = archives[0]['file_name']
-                        archive_path = os.path.join(config.DEFAULT_MODS_DIR, archive_filename)
+                        archive_path = os.path.join(app_config.DEFAULT_MODS_DIR, archive_filename)
                         
                         # Get deployment selections
                         selections = self.deployment_manager.get_deployment_selections(mod['id'])
@@ -1928,8 +2120,8 @@ class MainWindow:
         
         # Set dialog icon
         try:
-            import config
-            config.set_window_icon(dialog)
+            import config as app_config
+            app_config.set_window_icon(dialog)
         except Exception as e:
             logger.debug(f"Could not set shortcuts dialog icon: {e}")
         

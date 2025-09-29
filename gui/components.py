@@ -7,6 +7,7 @@ from tkinter import ttk
 import ttkbootstrap as ttk_bootstrap
 from ttkbootstrap.constants import *
 from pathlib import Path
+from utils.file_manager import ArchiveHandler
 from utils.logging_config import get_logger
 import config
 # Initialize logger for this module
@@ -406,11 +407,16 @@ class ModListFrame:
 class ModDetailsFrame:
     """Frame showing details of the selected mod"""
     
-    def __init__(self, parent, action_callback, deployment_manager=None):
+    def __init__(self, parent, action_callback, deployment_manager=None, config_manager=None):
         self.parent = parent
         self.action_callback = action_callback
         self.deployment_manager = deployment_manager
+        self.config_manager = config_manager
         self.current_mod = None
+        
+        # Archive testing state
+        self.archive_test_task_id = None
+        self.archive_test_after_id = None
         
         self.setup_ui()
     
@@ -493,7 +499,7 @@ class ModDetailsFrame:
         file_status_frame = ttk_bootstrap.Frame(info_frame)
         file_status_frame.pack(fill=X, padx=10, pady=(0, 5))
         
-        ttk_bootstrap.Label(file_status_frame, text="Archive File:").pack(side=LEFT)
+        ttk_bootstrap.Label(file_status_frame, text="Archive Type:").pack(side=LEFT)
         self.file_status_var = tk.StringVar()
         self.file_status_label = ttk_bootstrap.Label(file_status_frame, textvariable=self.file_status_var)
         self.file_status_label.pack(side=LEFT, padx=(5, 20))
@@ -605,6 +611,9 @@ class ModDetailsFrame:
     
     def display_mod(self, mod_data):
         """Display information for the selected mod"""
+        # Cancel any ongoing archive test before switching mods
+        self._cancel_archive_test()
+        
         self.current_mod = mod_data
         
         # Update mod information
@@ -661,8 +670,11 @@ class ModDetailsFrame:
         self.remove_mod_button.config(state=NORMAL)
     
     def update_file_status(self, mod_data):
-        """Update the file status indicator"""
+        """Update the file status indicator with background archive testing"""
         try:
+            # Cancel any existing archive test
+            self._cancel_archive_test()
+            
             # Check if we have archive information for this mod
             mod_id = mod_data.get("id")
             if not mod_id:
@@ -683,12 +695,12 @@ class ModDetailsFrame:
                     archive_path = mods_dir / archive_info["file_name"]
                     
                     if archive_path.exists():
-                        # File exists - show green status
-                        self.file_status_var.set("✅ Available")
-                        self.file_status_label.config(foreground="green")
+                        # Get archive type and file size
                         
-                        # Show file size
+                        archive_type = ArchiveHandler.get_archive_type_display(archive_info["file_name"])
                         file_size = archive_path.stat().st_size
+                        
+                        # Format file size
                         if file_size > 1024 * 1024:  # > 1MB
                             size_str = f"({file_size / (1024*1024):.1f} MB)"
                         elif file_size > 1024:  # > 1KB
@@ -698,7 +710,27 @@ class ModDetailsFrame:
                         
                         self.file_size_var.set(size_str)
                         
-                        logger.debug(f"Archive file found: {archive_info['file_name']} ({file_size} bytes)")
+                        # Check if archive integrity testing is enabled
+                        test_integrity = False
+                        if self.config_manager:
+                            test_integrity = self.config_manager.get_test_archive_integrity()
+                        
+                        if test_integrity:
+                            # Show loading state while testing archive integrity
+                            self.file_status_var.set(f"🔄 Testing {archive_type}...")
+                            self.file_status_label.config(foreground="orange")
+                            
+                            # Start background archive testing
+                            self._start_archive_test(archive_path, archive_type, mod_data)
+                            
+                            logger.debug(f"Started archive test for: {archive_info['file_name']} ({file_size} bytes) - Type: {archive_type}")
+                        else:
+                            # Just show archive type without testing (default text color)
+                            self.file_status_var.set(f"{archive_type}")
+                            self.file_status_label.config(foreground="")  # Default color
+                            
+                            logger.debug(f"Archive file found (no testing): {archive_info['file_name']} ({file_size} bytes) - Type: {archive_type}")
+                        
                     else:
                         # File missing - show red status
                         self.file_status_var.set("❌ Missing")
@@ -720,12 +752,109 @@ class ModDetailsFrame:
                 self.file_status_var.set("⚠️ Unknown")
                 self.file_status_label.config(foreground="orange")
                 self.file_size_var.set("")
-        
+                
         except Exception as e:
-            logger.error(f"Error updating file status: {e}")
-            self.file_status_var.set("❌ Error")
+            logger.error(f"Error in update_file_status: {e}")
+            self.file_status_var.set("⚠️ Error")
             self.file_status_label.config(foreground="red")
             self.file_size_var.set("")
+    
+    def _start_archive_test(self, archive_path, archive_type, mod_data):
+        """Start background archive integrity test"""
+        def test_archive_thread():
+            """Background thread to test archive integrity"""
+            try:
+                archive_handler = ArchiveHandler()
+                archive_ok = archive_handler.test_archive(archive_path)
+                
+                # Schedule UI update on main thread
+                # Use a small delay to ensure the loading state is visible for a moment
+                self.parent.after(100, lambda: self._update_archive_test_result(
+                    archive_type, archive_ok, mod_data
+                ))
+                
+            except Exception as e:
+                logger.error(f"Archive test thread failed: {e}")
+                # Schedule error update on main thread
+                self.parent.after(0, lambda: self._update_archive_test_error(
+                    archive_type, str(e), mod_data
+                ))
+        
+        # Create background task using thread manager
+        try:
+            from utils.thread_manager import get_thread_manager, TaskType
+            thread_manager = get_thread_manager()
+            self.archive_test_task_id = thread_manager.create_task(
+                task_type=TaskType.UPDATE_CHECK,  # Reuse existing type for archive validation
+                description=f"Testing archive integrity: {archive_type}",
+                target=test_archive_thread,
+                can_cancel=True
+            )
+            
+            logger.debug(f"Started background archive test task: {self.archive_test_task_id}")
+            
+        except Exception as e:
+            logger.error(f"Failed to create archive test task: {e}")
+            # Fallback to immediate update without testing
+            self.file_status_var.set(f"✅ {archive_type}")
+            self.file_status_label.config(foreground="green")
+    
+    def _update_archive_test_result(self, archive_type, archive_ok, mod_data):
+        """Update UI with archive test results"""
+        try:
+            # Only update if this is still the current mod
+            if self.current_mod and self.current_mod.get("id") == mod_data.get("id"):
+                if archive_ok:
+                    self.file_status_var.set(f"✅ {archive_type}")
+                    self.file_status_label.config(foreground="green")
+                else:
+                    self.file_status_var.set(f"❌ Corrupt {archive_type}")
+                    self.file_status_label.config(foreground="red")
+                
+                logger.debug(f"Archive test completed: {archive_type} - {'OK' if archive_ok else 'FAILED'}")
+            
+            # Clear task ID
+            self.archive_test_task_id = None
+            
+        except Exception as e:
+            logger.error(f"Error updating archive test result: {e}")
+    
+    def _update_archive_test_error(self, archive_type, error_message, mod_data):
+        """Update UI when archive test encounters an error"""
+        try:
+            # Only update if this is still the current mod
+            if self.current_mod and self.current_mod.get("id") == mod_data.get("id"):
+                self.file_status_var.set(f"⚠️ {archive_type}")
+                self.file_status_label.config(foreground="orange")
+                
+                logger.warning(f"Archive test error for {archive_type}: {error_message}")
+            
+            # Clear task ID
+            self.archive_test_task_id = None
+            
+        except Exception as e:
+            logger.error(f"Error updating archive test error: {e}")
+    
+    def _cancel_archive_test(self):
+        """Cancel any running archive test"""
+        if self.archive_test_task_id:
+            try:
+                from utils.thread_manager import get_thread_manager
+                thread_manager = get_thread_manager()
+                thread_manager.cancel_task(self.archive_test_task_id)
+                logger.debug(f"Cancelled archive test task: {self.archive_test_task_id}")
+            except Exception as e:
+                logger.warning(f"Failed to cancel archive test task: {e}")
+            finally:
+                self.archive_test_task_id = None
+        
+        # Cancel any pending after callbacks
+        if self.archive_test_after_id:
+            try:
+                self.parent.after_cancel(self.archive_test_after_id)
+            except:
+                pass
+            self.archive_test_after_id = None
     
     def update_files_list(self, mod_data):
         """Update the deployed files list"""
@@ -919,6 +1048,9 @@ class ModDetailsFrame:
     
     def clear_display(self):
         """Clear the mod details display"""
+        # Cancel any ongoing archive test before clearing
+        self._cancel_archive_test()
+        
         self.current_mod = None
         self.show_placeholder()
     
